@@ -10,7 +10,18 @@ using UnityEngine.InputSystem;
 
 public class ScoreboardUIModal : MonoBehaviour
 {
-    public static ScoreboardUIModal Instance { get; private set; }
+    public static ScoreboardUIModal Instance
+    {
+        get
+        {
+            if (_instance == null)
+            {
+                _instance = FindObjectOfType<ScoreboardUIModal>();
+            }
+            return _instance;
+        }
+    }
+    private static ScoreboardUIModal _instance;
 
     [Header("UI Panels & Tabs")]
     public GameObject modalRoot;
@@ -44,8 +55,8 @@ public class ScoreboardUIModal : MonoBehaviour
 
     void Awake()
     {
-        if (Instance == null) Instance = this;
-        else { Destroy(gameObject); return; }
+        if (_instance == null) _instance = this;
+        else if (_instance != this) { Destroy(this); return; }
     }
 
     void Start()
@@ -391,10 +402,10 @@ public class ScoreboardUIModal : MonoBehaviour
 
     private string FormatRank(int rank)
     {
-        if (rank == 1) return "<color=#FFD700><b>1st 🏆</b></color>";
-        if (rank == 2) return "<color=#E0E0E0><b>2nd 🥈</b></color>";
-        if (rank == 3) return "<color=#CD7F32><b>3rd 🥉</b></color>";
-        return $"<color=#A0C0E0><b>#{rank}</b></color>";
+        if (rank == 1) return "<color=#FFD700><b>1st [TOP]</b></color>";
+        if (rank == 2) return "<color=#E0E0E0><b>2nd</b></color>";
+        if (rank == 3) return "<color=#CD7F32><b>3rd</b></color>";
+        return $"<color=#80B0E0><b>#{rank}</b></color>";
     }
 
     private string FormatSeconds(int totalSec)
@@ -413,49 +424,54 @@ public class ScoreboardUIModal : MonoBehaviour
         rt.sizeDelta = new Vector2(0, 36);
 
         var img = rowGo.GetComponent<Image>();
-        img.color = (rank % 2 == 0) ? new Color(0.08f, 0.12f, 0.18f, 0.75f) : new Color(0.05f, 0.08f, 0.13f, 0.75f);
+        img.color = (rank % 2 == 0) ? new Color(0.08f, 0.12f, 0.18f, 0.85f) : new Color(0.05f, 0.08f, 0.13f, 0.85f);
 
         var hlg = rowGo.GetComponent<HorizontalLayoutGroup>();
-        hlg.childControlWidth = false;
+        hlg.childControlWidth = true;
         hlg.childControlHeight = true;
         hlg.childForceExpandWidth = false;
         hlg.childForceExpandHeight = true;
         hlg.spacing = 8;
         hlg.padding = new RectOffset(12, 12, 4, 4);
 
-        // Col 1: Rank (width 70)
-        CreateCell(rowGo.transform, 70, FormatRank(rank), TextAlignmentOptions.Center, 14);
+        // Col 1: Rank (width 80)
+        CreateCell(rowGo.transform, 80, FormatRank(rank), TextAlignmentOptions.Center, 13, false);
 
-        // Col 2: Player Nickname & Username (width 280)
+        // Col 2: Player Nickname & Username (width 310, flex 1)
         string displayName = ThaiFontAdjuster.Adjust(item.tiktok_nickname);
-        CreateCell(rowGo.transform, 280, $"<b>{displayName}</b> <size=80%><color=#7095B5>@{item.tiktok_username}</color></size>", TextAlignmentOptions.Left, 14);
+        CreateCell(rowGo.transform, 310, $"<b>{displayName}</b> <size=80%><color=#7095B5>@{item.tiktok_username}</color></size>", TextAlignmentOptions.Left, 13, true);
 
-        // Col 3: Score (width 120)
-        CreateCell(rowGo.transform, 120, $"<color=#FFD700><b>{item.total_score:N0}</b></color> <size=75%>PTS</size>", TextAlignmentOptions.Right, 14);
+        // Col 3: Score (width 130)
+        CreateCell(rowGo.transform, 130, $"<color=#FFD700><b>{item.total_score:N0}</b></color> <size=75%>PTS</size>", TextAlignmentOptions.Right, 13, false);
 
-        // Col 4: Best Time (width 100)
+        // Col 4: Best Time (width 110)
         string timeStr = (item.best_score_time > 0) ? FormatSeconds(item.best_score_time) : "--:--";
-        CreateCell(rowGo.transform, 100, $"<color=#80E0FF>{timeStr}</color>", TextAlignmentOptions.Right, 14);
+        CreateCell(rowGo.transform, 110, $"<color=#80E0FF>{timeStr}</color>", TextAlignmentOptions.Right, 13, false);
 
         return rowGo;
     }
 
-    private TextMeshProUGUI CreateCell(Transform parent, float width, string text, TextAlignmentOptions align, float fontSize)
+    private TextMeshProUGUI CreateCell(Transform parent, float width, string text, TextAlignmentOptions align, float fontSize, bool flexible)
     {
         var go = new GameObject("Cell", typeof(RectTransform), typeof(TextMeshProUGUI), typeof(LayoutElement));
         go.transform.SetParent(parent, false);
 
+        var rt = go.GetComponent<RectTransform>();
+        rt.sizeDelta = new Vector2(width, 36);
+
         var le = go.GetComponent<LayoutElement>();
         le.preferredWidth = width;
         le.minWidth = width;
+        if (flexible) le.flexibleWidth = 1;
 
         var tmp = go.GetComponent<TextMeshProUGUI>();
         tmp.text = text;
         tmp.fontSize = fontSize;
         tmp.alignment = align;
         tmp.color = Color.white;
+        tmp.overflowMode = TextOverflowModes.Ellipsis;
 
-        var thaiFont = Resources.Load<TMP_FontAsset>("ThaiFont_SDF");
+        var thaiFont = UnityEditor.AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Fonts/ThaiFont_SDF.asset");
         if (thaiFont != null) tmp.font = thaiFont;
 
         return tmp;

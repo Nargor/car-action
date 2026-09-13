@@ -7,7 +7,18 @@ using UnityEngine.Networking;
 
 public class ScoreboardAPIManager : MonoBehaviour
 {
-    public static ScoreboardAPIManager Instance { get; private set; }
+    public static ScoreboardAPIManager Instance
+    {
+        get
+        {
+            if (_instance == null)
+            {
+                _instance = FindObjectOfType<ScoreboardAPIManager>();
+            }
+            return _instance;
+        }
+    }
+    private static ScoreboardAPIManager _instance;
 
     [Header("API Configuration")]
     public string apiBaseUrl = "https://shop.thungthao.online";
@@ -73,8 +84,8 @@ public class ScoreboardAPIManager : MonoBehaviour
 
     void Awake()
     {
-        if (Instance == null) Instance = this;
-        else { Destroy(gameObject); return; }
+        if (_instance == null) _instance = this;
+        else if (_instance != this) { Destroy(this); return; }
     }
 
     // ==================== 1. INSERT SCORE ====================
