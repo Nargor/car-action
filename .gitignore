@@ -1,4 +1,4 @@
-﻿# Unity generated folders
+# Unity generated folders
 [Ll]ibrary/
 [Tt]emp/
 [Oo]bj/
@@ -34,6 +34,16 @@ ExportedObj/
 sysinfo.txt
 
 # Builds
+[Bb]uild/
+[Bb]uilds/
+Build/
+Builds/
+Build_PC/
+Build_WebGL/
+*.exe
+*.wasm
+*.data
+*.symbols.json
 *.apk
 *.aab
 *.unitypackage

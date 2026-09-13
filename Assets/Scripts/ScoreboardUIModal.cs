@@ -42,6 +42,7 @@ public class ScoreboardUIModal : MonoBehaviour
     public Transform rowsContainer;
     public GameObject rowPrefab;
     public TextMeshProUGUI statusText;
+    public TMP_FontAsset thaiFont;
 
     [Header("State")]
     public bool isStreamerTab = true;
@@ -469,10 +470,14 @@ public class ScoreboardUIModal : MonoBehaviour
         tmp.fontSize = fontSize;
         tmp.alignment = align;
         tmp.color = Color.white;
-        tmp.overflowMode = TextOverflowModes.Ellipsis;
-
-        var thaiFont = UnityEditor.AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Fonts/ThaiFont_SDF.asset");
         if (thaiFont != null) tmp.font = thaiFont;
+#if UNITY_EDITOR
+        else
+        {
+            var f = UnityEditor.AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Fonts/ThaiFont_SDF.asset");
+            if (f != null) tmp.font = f;
+        }
+#endif
 
         return tmp;
     }
