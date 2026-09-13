@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
@@ -269,7 +269,18 @@ public class HUDController : MonoBehaviour
                                  : (pos == 3) ? "<color=#CD7F32>3rd PLACE! 🥉 PODIUM</color>"
                                  : $"<color=#80C0FF>{pos}th PLACE</color>";
 
-                finishText.text = $"<b>RACE FINISHED!</b>\n\n{rankBadge}\nPosition: {pos} / {total}\n\n<size=80%>Total Time: {LapTimer.FormatTime(lapTimer.TotalRaceTime)}\nBest Lap:   {LapTimer.FormatTime(lapTimer.BestLapTime)}</size>";
+                finishText.text = $"<b>RACE FINISHED!</b>\n\n{rankBadge}\nPosition: {pos} / {total}\n\n<size=80%>Total Time: {LapTimer.FormatTime(lapTimer.TotalRaceTime)}\nBest Lap:   {LapTimer.FormatTime(lapTimer.BestLapTime)}</size>\n\n<size=75%><color=#00FF88>✓ Scores recorded to Thungthao Scoreboard API!</color>\n<color=#FFD700>[Press TAB for Scoreboard]</color></size>";
+            }
+
+            // Submit Scores to Scoreboard API (Humans only)
+            if (ScoreboardAPIManager.Instance != null && RaceManager.Instance != null)
+            {
+                string sUser = (TikTokLiveManager.Instance != null && !string.IsNullOrEmpty(TikTokLiveManager.Instance.streamerUsername))
+                    ? TikTokLiveManager.Instance.streamerUsername
+                    : "tiktok_streamer";
+                float tSec = (lapTimer != null) ? lapTimer.TotalRaceTime : 60f;
+                var racers = RaceManager.Instance.GetRacersLeaderboard();
+                ScoreboardAPIManager.Instance.SubmitRaceResults(racers, sUser, sUser, tSec);
             }
         }
     }

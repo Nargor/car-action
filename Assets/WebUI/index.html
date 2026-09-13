@@ -162,9 +162,10 @@
         <button id="cam-btn-tps2" class="cam-btn" onclick="UI.setCameraMode('TPS2')">TPS2</button>
         <button id="cam-btn-birdeye" class="cam-btn" onclick="UI.setCameraMode('Birdeye')">BIRDEYE</button>
         <button id="cam-btn-noclip" class="cam-btn" onclick="UI.setCameraMode('NoClip')">NOCLIP</button>
+        <button id="cam-btn-scoreboard" class="cam-btn btn-gold" onclick="UI.toggleScoreboard()">[TAB] 🏆 SCOREBOARD</button>
       </div>
       <div class="toolbar-hint">
-        [C] Cycle | [1-5] Select | [R] Reset | Mouse Drag: Orbit 360°
+        [C] Cycle | [1-5] Select | [TAB] Scoreboard | [R] Reset | Mouse Drag: Orbit 360°
       </div>
     </div>
 
@@ -178,9 +179,49 @@
           <div>Total Time: <b id="finish-total-time">00:00.000</b></div>
           <div>Best Lap:   <b id="finish-best-time">00:00.000</b></div>
         </div>
+        <div class="finish-api-status">
+          <span style="color:#00ff88">✓ Scores recorded to Thungthao Scoreboard API!</span><br>
+          <span style="color:#ffd700; font-size:12px;">Press [TAB] to view online rankings</span>
+        </div>
         <div class="finish-actions">
           <button class="btn btn-green" onclick="UI.openLobby(UI.currentMode)">PLAY AGAIN &gt;</button>
           <button class="btn btn-dark" onclick="UI.showScreen('screen-title')">MAIN MENU &gt;</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scoreboard Modal (TAB) -->
+    <div id="hud-scoreboard-modal" class="modal-overlay hidden">
+      <div class="scoreboard-card">
+        <button class="modal-close-btn" onclick="UI.toggleScoreboard()">✕</button>
+        <div class="sc-title">🏆 THUNGTHAO SCOREBOARD</div>
+        <div class="sc-subtitle">GAME: CARACTION • ONLINE REAL-TIME LEADERBOARD</div>
+
+        <div class="sc-tab-bar">
+          <button id="sc-tab-streamer" class="sc-tab active" onclick="UI.switchScoreboardTab(true)">STREAMER SCOREBOARD</button>
+          <button id="sc-tab-world" class="sc-tab" onclick="UI.switchScoreboardTab(false)">WORLD SCOREBOARD (GLOBAL)</button>
+        </div>
+
+        <div class="sc-search-bar">
+          <input type="text" id="sc-search-input" class="text-input" placeholder="Search player nickname / username..." onkeydown="if(event.key==='Enter') UI.searchScoreboard()">
+          <button class="btn-sm btn-cyan" onclick="UI.searchScoreboard()">SEARCH 🔍</button>
+        </div>
+
+        <div class="sc-table-header">
+          <span class="sc-col-rank"># RANK</span>
+          <span class="sc-col-player">PLAYER</span>
+          <span class="sc-col-score">TOTAL SCORE</span>
+          <span class="sc-col-time">BEST TIME</span>
+        </div>
+
+        <div id="sc-rows-container" class="sc-rows-body">
+          <!-- Rows dynamically populated -->
+        </div>
+
+        <div class="sc-pagination-bar">
+          <button id="sc-btn-prev" class="btn-sm btn-dark" onclick="UI.prevScoreboardPage()">◀ PREV</button>
+          <span id="sc-page-indicator" class="sc-page-text">PAGE 1 / 1</span>
+          <button id="sc-btn-next" class="btn-sm btn-dark" onclick="UI.nextScoreboardPage()">NEXT ▶</button>
         </div>
       </div>
     </div>

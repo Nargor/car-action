@@ -1,4 +1,4 @@
-﻿// ===== HIGH-SPEED CAR RACE — WEB UI CONTROLLER =====
+// ===== HIGH-SPEED CAR RACE — WEB UI CONTROLLER =====
 
 const UI = {
   currentMode: "PlayerRace",
@@ -294,7 +294,132 @@ const UI = {
     document.onmouseup = () => {
       isDragging = false;
     };
+  },
+
+  // ===== THUNGTHAO SCOREBOARD MODAL (TAB) =====
+  isStreamerTab: true,
+  scPage: 1,
+  scTotalPages: 1,
+  scSearch: "",
+  scApiBase: "https://shop.thungthao.online",
+
+  toggleScoreboard() {
+    const modal = document.getElementById("hud-scoreboard-modal");
+    if (!modal) return;
+
+    const isHidden = modal.classList.contains("hidden");
+    if (isHidden) {
+      modal.classList.remove("hidden");
+      this.fetchScoreboard();
+    } else {
+      modal.classList.add("hidden");
+    }
+  },
+
+  switchScoreboardTab(isStreamer) {
+    this.isStreamerTab = isStreamer;
+    this.scPage = 1;
+    this.scSearch = "";
+    const sInput = document.getElementById("sc-search-input");
+    if (sInput) sInput.value = "";
+
+    document.getElementById("sc-tab-streamer").classList.toggle("active", isStreamer);
+    document.getElementById("sc-tab-world").classList.toggle("active", !isStreamer);
+
+    this.fetchScoreboard();
+  },
+
+  searchScoreboard() {
+    const sInput = document.getElementById("sc-search-input");
+    this.scSearch = sInput ? sInput.value.trim() : "";
+    this.scPage = 1;
+    this.fetchScoreboard();
+  },
+
+  prevScoreboardPage() {
+    if (this.scPage > 1) {
+      this.scPage--;
+      this.fetchScoreboard();
+    }
+  },
+
+  nextScoreboardPage() {
+    if (this.scPage < this.scTotalPages) {
+      this.scPage++;
+      this.fetchScoreboard();
+    }
+  },
+
+  fetchScoreboard() {
+    const container = document.getElementById("sc-rows-container");
+    if (container) container.innerHTML = `<div style="text-align:center; padding:40px; color:#8fa0b5;">Loading scores from API...</div>`;
+
+    const endpoint = this.isStreamerTab
+      ? `${this.scApiBase}/api/fivem/scoreboard/getbystreamer?username=${encodeURIComponent("my_racing_stream")}&game_name=caraction&page=${this.scPage}&limit=10${this.scSearch ? `&search=${encodeURIComponent(this.scSearch)}` : ""}`
+      : `${this.scApiBase}/api/fivem/scoreboard/getall?game_name=caraction&page=${this.scPage}&limit=10${this.scSearch ? `&search=${encodeURIComponent(this.scSearch)}` : ""}`;
+
+    fetch(endpoint)
+      .then(res => res.json())
+      .then(res => {
+        if (!res || !res.data || res.data.length === 0) {
+          if (container) container.innerHTML = `<div style="text-align:center; padding:40px; color:#8fa0b5;">No players found on leaderboard.</div>`;
+          this.updateScoreboardPagination(1, 1);
+          return;
+        }
+
+        if (res.pagination) {
+          this.updateScoreboardPagination(res.pagination.current_page, res.pagination.total_pages);
+        }
+
+        if (container) {
+          container.innerHTML = "";
+          res.data.forEach((item, idx) => {
+            const rank = item.global_rank || ((this.scPage - 1) * 10 + idx + 1);
+            const rankBadge = (rank === 1) ? "<span style='color:#ffd700'><b>1st 🏆</b></span>"
+                            : (rank === 2) ? "<span style='color:#e0e0e0'><b>2nd 🥈</b></span>"
+                            : (rank === 3) ? "<span style='color:#cd7f32'><b>3rd 🥉</b></span>"
+                            : `<span style='color:#a0c0e0'><b>#${rank}</b></span>`;
+
+            const min = Math.floor((item.best_score_time || 0) / 60);
+            const sec = (item.best_score_time || 0) % 60;
+            const timeStr = (item.best_score_time > 0) ? `${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')}` : "--:--";
+
+            const row = document.createElement("div");
+            row.className = "sc-row";
+            row.innerHTML = `
+              <span class="sc-col-rank">${rankBadge}</span>
+              <span class="sc-col-player"><b>${item.tiktok_nickname || item.tiktok_username}</b> <span style="font-size:11px; color:#7095b5;">@${item.tiktok_username}</span></span>
+              <span class="sc-col-score"><span style="color:#ffd700"><b>${(item.total_score || 0).toLocaleString()}</b></span> <span style="font-size:10px; color:#8fa0b5;">PTS</span></span>
+              <span class="sc-col-time" style="color:#80e0ff;">${timeStr}</span>
+            `;
+            container.appendChild(row);
+          });
+        }
+      })
+      .catch(err => {
+        if (container) container.innerHTML = `<div style="text-align:center; padding:40px; color:#ef4444;">Failed to connect to Scoreboard API.</div>`;
+      });
+  },
+
+  updateScoreboardPagination(cur, tot) {
+    this.scPage = cur || 1;
+    this.scTotalPages = tot || 1;
+    const pageText = document.getElementById("sc-page-indicator");
+    if (pageText) pageText.innerText = `PAGE ${this.scPage} / ${this.scTotalPages}`;
+
+    const prevBtn = document.getElementById("sc-btn-prev");
+    if (prevBtn) prevBtn.disabled = (this.scPage <= 1);
+
+    const nextBtn = document.getElementById("sc-btn-next");
+    if (nextBtn) nextBtn.disabled = (this.scPage >= this.scTotalPages);
   }
 };
+
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Tab") {
+    e.preventDefault();
+    UI.toggleScoreboard();
+  }
+});
 
 window.onload = () => UI.init();
