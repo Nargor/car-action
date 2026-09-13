@@ -93,6 +93,43 @@ public class ScoreboardUIModal : MonoBehaviour
         }
     }
 
+    public bool HasStreamerIdentified()
+    {
+        if (TikTokLiveManager.Instance != null
+            && TikTokLiveManager.Instance.currentState != TikTokLiveManager.LiveState.Disconnected
+            && !string.IsNullOrEmpty(TikTokLiveManager.Instance.streamerUsername))
+        {
+            return true;
+        }
+
+        var mm = MenuManager.Instance;
+        if (mm != null && mm.tiktokLobbyPanel != null && mm.tiktokLobbyPanel.activeSelf)
+        {
+            if (mm.tiktokUsernameInput != null && !string.IsNullOrEmpty(mm.tiktokUsernameInput.text.Trim()))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public string GetCurrentStreamerUsername()
+    {
+        if (TikTokLiveManager.Instance != null && !string.IsNullOrEmpty(TikTokLiveManager.Instance.streamerUsername))
+        {
+            return TikTokLiveManager.Instance.streamerUsername;
+        }
+
+        var mm = MenuManager.Instance;
+        if (mm != null && mm.tiktokUsernameInput != null && !string.IsNullOrEmpty(mm.tiktokUsernameInput.text.Trim()))
+        {
+            return mm.tiktokUsernameInput.text.Trim().Replace("@", "");
+        }
+
+        return "";
+    }
+
     public void ToggleScoreboard()
     {
         if (modalRoot == null) return;
@@ -101,10 +138,17 @@ public class ScoreboardUIModal : MonoBehaviour
 
         if (newState)
         {
-            // Auto select Streamer tab if TikTok mode, else World
-            var mm = MenuManager.Instance;
-            if (mm != null && mm.currentMode == RaceManager.GameMode.TikTokLive)
-                isStreamerTab = true;
+            bool hasStreamer = HasStreamerIdentified();
+            if (!hasStreamer)
+            {
+                isStreamerTab = false; // Only show World scoreboard
+            }
+            else
+            {
+                var mm = MenuManager.Instance;
+                if (mm != null && mm.currentMode == RaceManager.GameMode.TikTokLive)
+                    isStreamerTab = true;
+            }
 
             currentPage = 1;
             currentSearch = "";
@@ -117,7 +161,10 @@ public class ScoreboardUIModal : MonoBehaviour
     public void OpenScoreboard(bool streamerTab = true)
     {
         if (modalRoot != null) modalRoot.SetActive(true);
-        isStreamerTab = streamerTab;
+
+        bool hasStreamer = HasStreamerIdentified();
+        isStreamerTab = hasStreamer ? streamerTab : false;
+
         currentPage = 1;
         currentSearch = "";
         if (searchInput != null) searchInput.text = "";
@@ -132,6 +179,7 @@ public class ScoreboardUIModal : MonoBehaviour
 
     public void SwitchTab(bool streamerTab)
     {
+        if (streamerTab && !HasStreamerIdentified()) return;
         if (isStreamerTab == streamerTab) return;
         isStreamerTab = streamerTab;
         currentPage = 1;
@@ -146,15 +194,29 @@ public class ScoreboardUIModal : MonoBehaviour
         Color activeCol = new Color(0.00f, 0.83f, 1.00f); // Bright Cyan
         Color inactiveCol = new Color(0.20f, 0.25f, 0.35f); // Dark Grey
 
+        bool hasStreamer = HasStreamerIdentified();
+
         if (tabStreamerBtn != null)
         {
-            var img = tabStreamerBtn.GetComponent<Image>();
-            if (img != null) img.color = isStreamerTab ? activeCol : inactiveCol;
+            tabStreamerBtn.gameObject.SetActive(hasStreamer);
+            if (hasStreamer)
+            {
+                var img = tabStreamerBtn.GetComponent<Image>();
+                if (img != null) img.color = isStreamerTab ? activeCol : inactiveCol;
+            }
         }
-        if (tabStreamerText != null)
+
+        if (tabStreamerText != null && hasStreamer)
         {
+            string sName = GetCurrentStreamerUsername();
+            tabStreamerText.text = $"STREAMER (@{sName})";
             tabStreamerText.color = isStreamerTab ? Color.black : Color.white;
             tabStreamerText.fontStyle = isStreamerTab ? FontStyles.Bold : FontStyles.Normal;
+        }
+
+        if (!hasStreamer)
+        {
+            isStreamerTab = false;
         }
 
         if (tabWorldBtn != null)
@@ -202,11 +264,16 @@ public class ScoreboardUIModal : MonoBehaviour
         ShowStatus("Loading scores from API...");
         ClearRows();
 
-        if (isStreamerTab)
+        bool hasStreamer = HasStreamerIdentified();
+        if (!hasStreamer)
         {
-            string sName = (TikTokLiveManager.Instance != null && !string.IsNullOrEmpty(TikTokLiveManager.Instance.streamerUsername))
-                ? TikTokLiveManager.Instance.streamerUsername
-                : "tiktok_streamer";
+            isStreamerTab = false;
+        }
+
+        if (isStreamerTab && hasStreamer)
+        {
+            string sName = GetCurrentStreamerUsername();
+            if (string.IsNullOrEmpty(sName)) sName = "tiktok_streamer";
 
             ScoreboardAPIManager.Instance.GetStreamerScoreboard(sName, currentPage, itemsPerPage, currentSearch, OnScoresReceived);
         }

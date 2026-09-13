@@ -297,11 +297,32 @@ const UI = {
   },
 
   // ===== THUNGTHAO SCOREBOARD MODAL (TAB) =====
-  isStreamerTab: true,
+  isStreamerTab: false,
   scPage: 1,
   scTotalPages: 1,
   scSearch: "",
   scApiBase: "https://shop.thungthao.online",
+  scStreamerUsername: "", // Set from game state when TikTok Live connected
+
+  _hasStreamerIdentified() {
+    return this.scStreamerUsername && this.scStreamerUsername.trim().length > 0;
+  },
+
+  _updateScoreboardTabBar() {
+    const has = this._hasStreamerIdentified();
+    const tabStreamer = document.getElementById("sc-tab-streamer");
+    if (tabStreamer) {
+      tabStreamer.style.display = has ? "" : "none";
+      if (has) tabStreamer.textContent = `STREAMER (@${this.scStreamerUsername})`;
+    }
+    // If streamer tab was selected but now no streamer, force to world
+    if (!has) {
+      this.isStreamerTab = false;
+    }
+    const tabWorld = document.getElementById("sc-tab-world");
+    if (tabWorld) tabWorld.classList.toggle("active", !this.isStreamerTab);
+    if (tabStreamer) tabStreamer.classList.toggle("active", this.isStreamerTab);
+  },
 
   toggleScoreboard() {
     const modal = document.getElementById("hud-scoreboard-modal");
@@ -310,6 +331,15 @@ const UI = {
     const isHidden = modal.classList.contains("hidden");
     if (isHidden) {
       modal.classList.remove("hidden");
+      // Auto select correct tab
+      if (!this._hasStreamerIdentified()) {
+        this.isStreamerTab = false;
+      }
+      this.scPage = 1;
+      this.scSearch = "";
+      const sInput = document.getElementById("sc-search-input");
+      if (sInput) sInput.value = "";
+      this._updateScoreboardTabBar();
       this.fetchScoreboard();
     } else {
       modal.classList.add("hidden");
@@ -317,15 +347,13 @@ const UI = {
   },
 
   switchScoreboardTab(isStreamer) {
+    if (isStreamer && !this._hasStreamerIdentified()) return; // Block if no streamer
     this.isStreamerTab = isStreamer;
     this.scPage = 1;
     this.scSearch = "";
     const sInput = document.getElementById("sc-search-input");
     if (sInput) sInput.value = "";
-
-    document.getElementById("sc-tab-streamer").classList.toggle("active", isStreamer);
-    document.getElementById("sc-tab-world").classList.toggle("active", !isStreamer);
-
+    this._updateScoreboardTabBar();
     this.fetchScoreboard();
   },
 
@@ -354,8 +382,8 @@ const UI = {
     const container = document.getElementById("sc-rows-container");
     if (container) container.innerHTML = `<div style="text-align:center; padding:40px; color:#8fa0b5;">Loading scores from API...</div>`;
 
-    const endpoint = this.isStreamerTab
-      ? `${this.scApiBase}/api/fivem/scoreboard/getbystreamer?username=${encodeURIComponent("my_racing_stream")}&game_name=caraction&page=${this.scPage}&limit=10${this.scSearch ? `&search=${encodeURIComponent(this.scSearch)}` : ""}`
+    const endpoint = (this.isStreamerTab && this._hasStreamerIdentified())
+      ? `${this.scApiBase}/api/fivem/scoreboard/getbystreamer?username=${encodeURIComponent(this.scStreamerUsername)}&game_name=caraction&page=${this.scPage}&limit=10${this.scSearch ? `&search=${encodeURIComponent(this.scSearch)}` : ""}`
       : `${this.scApiBase}/api/fivem/scoreboard/getall?game_name=caraction&page=${this.scPage}&limit=10${this.scSearch ? `&search=${encodeURIComponent(this.scSearch)}` : ""}`;
 
     fetch(endpoint)
