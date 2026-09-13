@@ -38,6 +38,8 @@ public class MenuManager : MonoBehaviour
     public Button simJoinButton;
     public Button simNitroButton;
     public Button simPrankButton;
+    public Button addBotButton;
+    public Button add5BotsButton;
 
     [Header("Selected Config")]
     public RaceManager.GameMode currentMode = RaceManager.GameMode.PlayerRace;
@@ -136,6 +138,20 @@ public class MenuManager : MonoBehaviour
             simPrankButton.onClick.RemoveAllListeners();
             simPrankButton.onClick.AddListener(() => {
                 if (TikTokLiveManager.Instance != null) TikTokLiveManager.Instance.SimulatePrank();
+            });
+        }
+        if (addBotButton != null)
+        {
+            addBotButton.onClick.RemoveAllListeners();
+            addBotButton.onClick.AddListener(() => {
+                if (TikTokLiveManager.Instance != null) TikTokLiveManager.Instance.AddBotRacer();
+            });
+        }
+        if (add5BotsButton != null)
+        {
+            add5BotsButton.onClick.RemoveAllListeners();
+            add5BotsButton.onClick.AddListener(() => {
+                if (TikTokLiveManager.Instance != null) TikTokLiveManager.Instance.AddMultipleBots(5);
             });
         }
 

@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -226,6 +226,48 @@ public class TikTokLiveManager : MonoBehaviour
         int randIdx = Random.Range(0, joinedRacers.Count);
         string uname = joinedRacers[randIdx].username;
         ProcessGift(uname, "Rose");
+    }
+
+    // ===== BOT RACER ADDITION =====
+    private static readonly string[] botNames = new string[]
+    {
+        "BOT_Speedy", "BOT_Apex", "BOT_Thunder", "BOT_Shadow", "BOT_Viper",
+        "BOT_Ghost", "BOT_Nitro", "BOT_Phantom", "BOT_Cyber", "BOT_Blaze",
+        "BOT_Storm", "BOT_Echo", "BOT_Titan", "BOT_Flash", "BOT_Raptor",
+        "BOT_Turbo", "BOT_Havoc", "BOT_Zenith", "BOT_Bullet", "BOT_Cosmo"
+    };
+    private int botCounter = 1;
+
+    public void AddBotRacer()
+    {
+        if (currentState != LiveState.WaitingLobby)
+        {
+            Debug.LogWarning("[TikTokLive] Cannot add bot: not in waiting lobby!");
+            return;
+        }
+
+        if (joinedRacers.Count >= maxRacers)
+        {
+            Debug.LogWarning($"[TikTokLive] Grid is full ({maxRacers} racers max)!");
+            return;
+        }
+
+        string bName = (botCounter - 1 < botNames.Length)
+            ? botNames[botCounter - 1]
+            : $"BOT_Racer_{botCounter}";
+        botCounter++;
+
+        ProcessChatMessage(bName, "a", null);
+        Debug.Log($"[TikTokLive] 🤖 Added {bName} into the race! Total racers: {joinedRacers.Count}/{maxRacers}");
+    }
+
+    public void AddMultipleBots(int count)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            if (joinedRacers.Count >= maxRacers) break;
+            AddBotRacer();
+        }
     }
 
     public void SimulatePrank()
