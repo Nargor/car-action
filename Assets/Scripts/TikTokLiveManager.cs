@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -68,16 +68,98 @@ public class TikTokLiveManager : MonoBehaviour
     public event Action OnRacersChanged;
 
     private Coroutine pollCoroutine;
+    private static System.Diagnostics.Process bridgeProcess;
 
     void Awake()
     {
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
+
+        EnsureBridgeServerRunning();
     }
 
     void OnDestroy()
     {
         Disconnect();
+    }
+
+    void OnApplicationQuit()
+    {
+        StopBridgeServerProcess();
+    }
+
+    public void EnsureBridgeServerRunning()
+    {
+#if UNITY_STANDALONE || UNITY_EDITOR
+        StartCoroutine(CheckAndStartBridgeCoroutine());
+#endif
+    }
+
+    private IEnumerator CheckAndStartBridgeCoroutine()
+    {
+        // 1. Check if already running on 8765
+        using (UnityWebRequest req = UnityWebRequest.Get($"{bridgeBaseUrl}/health"))
+        {
+            req.timeout = 2;
+            yield return req.SendWebRequest();
+            if (req.result == UnityWebRequest.Result.Success)
+            {
+                isBridgeConnected = true;
+                yield break;
+            }
+        }
+
+        // 2. Not running: launch python script invisibly in background (NO CONSOLE WINDOW!)
+        string scriptPath = null;
+        string[] candidates = new string[]
+        {
+            System.IO.Path.Combine(Application.streamingAssetsPath, "TikTokBridgeServer.py"),
+            System.IO.Path.Combine(System.IO.Path.GetDirectoryName(Application.dataPath), "TikTokBridgeServer.py"),
+            System.IO.Path.Combine(Application.dataPath, "..", "TikTokBridgeServer.py")
+        };
+
+        foreach (var p in candidates)
+        {
+            if (System.IO.File.Exists(p))
+            {
+                scriptPath = System.IO.Path.GetFullPath(p);
+                break;
+            }
+        }
+
+        if (!string.IsNullOrEmpty(scriptPath))
+        {
+            try
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "python",
+                    Arguments = $"\"{scriptPath}\" 8765",
+                    UseShellExecute = false,
+                    CreateNoWindow = true, // Completely silent, NO CONSOLE WINDOW!
+                    WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden
+                };
+                bridgeProcess = System.Diagnostics.Process.Start(psi);
+                Debug.Log($"[TikTokLive] Auto-started background bridge server invisibly (PID: {bridgeProcess?.Id})");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[TikTokLive] Could not auto-launch python bridge: {ex.Message}");
+            }
+        }
+    }
+
+    private void StopBridgeServerProcess()
+    {
+        if (bridgeProcess != null)
+        {
+            try
+            {
+                if (!bridgeProcess.HasExited) bridgeProcess.Kill();
+            }
+            catch {}
+            bridgeProcess = null;
+        }
     }
 
     // ==========================================
@@ -91,11 +173,12 @@ public class TikTokLiveManager : MonoBehaviour
     private IEnumerator CheckIsLiveCoroutine(string username, Action<bool, string> callback)
     {
         string cleanUser = username.Replace("@", "").Trim();
-        string url = $"{bridgeBaseUrl}/check_live?username={UnityWebRequest.EscapeURL(cleanUser)}";
 
+        // 1. Try local bridge server first
+        string url = $"{bridgeBaseUrl}/check_live?username={UnityWebRequest.EscapeURL(cleanUser)}";
         using (UnityWebRequest req = UnityWebRequest.Get(url))
         {
-            req.timeout = 10;
+            req.timeout = 5;
             yield return req.SendWebRequest();
 
             if (req.result == UnityWebRequest.Result.Success)
@@ -113,21 +196,41 @@ public class TikTokLiveManager : MonoBehaviour
                     {
                         string msg = (res != null && !string.IsNullOrEmpty(res.error)) 
                             ? res.error 
-                            : "TikTok @ " + cleanUser + " ยังไม่ได้เริ่ม Live ในขณะนี้";
+                            : "TikTok @" + cleanUser + " ยังไม่ได้เริ่ม Live ในขณะนี้";
                         callback?.Invoke(false, msg);
                         yield break;
                     }
                 }
-                catch (Exception ex)
+                catch {}
+            }
+        }
+
+        // 2. Direct fallback: query TikTok webpage directly (works without python / in WebGL!)
+        string directUrl = $"https://www.tiktok.com/@{cleanUser}/live";
+        using (UnityWebRequest directReq = UnityWebRequest.Get(directUrl))
+        {
+            directReq.SetRequestHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+            directReq.timeout = 8;
+            yield return directReq.SendWebRequest();
+
+            if (directReq.result == UnityWebRequest.Result.Success)
+            {
+                string html = directReq.downloadHandler.text;
+                bool isLive = html.Contains("\"status\":2");
+                if (isLive)
                 {
-                    callback?.Invoke(false, "เกิดข้อผิดพลาดในการตรวจสอบสถานะ: " + ex.Message);
+                    callback?.Invoke(true, "");
+                    yield break;
+                }
+                else
+                {
+                    callback?.Invoke(false, "TikTok @" + cleanUser + " ยังไม่ได้เริ่ม Live ในขณะนี้\n(กรุณาเริ่ม Live บน TikTok ก่อนสร้างห้อง)");
                     yield break;
                 }
             }
             else
             {
-                // Bridge server is not reachable
-                callback?.Invoke(false, "ไม่สามารถเชื่อมต่อกับ TikTok Bridge Server (127.0.0.1:8765) ได้\nกรุณารัน 'start_tiktok_bridge.bat' ก่อนสร้างห้อง");
+                callback?.Invoke(false, "ไม่สามารถตรวจสอบสถานะกับ TikTok ได้: " + directReq.error);
             }
         }
     }

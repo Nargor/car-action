@@ -38,6 +38,15 @@ public static class BuildPipelineScript
 
         string msg = $"Windows Build {summary.result}! Errors: {summary.totalErrors}, Warnings: {summary.totalWarnings}, Time: {summary.totalTime.TotalSeconds:F1}s, Size: {(summary.totalSize / (1024 * 1024)):F1} MB";
         Debug.Log($"[Build] {msg}");
+
+        // Ensure TikTokBridgeServer.py is placed right next to car-action.exe
+        string srcBridge = Path.Combine(projectRoot, "TikTokBridgeServer.py");
+        string dstBridge = Path.Combine(outDir, "TikTokBridgeServer.py");
+        if (File.Exists(srcBridge))
+        {
+            File.Copy(srcBridge, dstBridge, true);
+        }
+
         return msg;
     }
 
