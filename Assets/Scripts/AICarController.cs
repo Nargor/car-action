@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -51,6 +51,9 @@ public class AICarController : MonoBehaviour
     private float unstuckEndTime = 0f;
 
     public float SpeedKmh => currentSpeedKmh;
+    public Rigidbody CarRigidbody => rb;
+    public float CurrentThrottle { get; private set; }
+    public float CurrentBrake { get; private set; }
 
     public void Initialize(Vector3[] trackWaypoints, int startWaypointIdx, float lateralOffset, Color color, string name)
     {
@@ -191,13 +194,18 @@ public class AICarController : MonoBehaviour
             float brakeStrength = Mathf.Clamp01((currentSpeedKmh - targetSpeed) / 25f);
             ApplyBrakes(maxBrakeTorque * brakeStrength);
             ApplyDrive(0f);
+            CurrentBrake = brakeStrength;
+            CurrentThrottle = 0f;
         }
         else
         {
             // Accelerate
             float throttle = Mathf.Clamp01(1f - (currentSpeedKmh / targetSpeed));
-            ApplyDrive(effectiveMotor * Mathf.Max(0.35f, throttle));
+            float throttleVal = Mathf.Max(0.35f, throttle);
+            ApplyDrive(effectiveMotor * throttleVal);
             ApplyBrakes(0f);
+            CurrentBrake = 0f;
+            CurrentThrottle = throttleVal;
         }
 
         // Gentle downforce

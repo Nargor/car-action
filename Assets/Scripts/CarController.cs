@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.InputSystem;
 
 [RequireComponent(typeof(Rigidbody))]
@@ -47,6 +47,9 @@ public class CarController : MonoBehaviour
 
     public float SpeedKmh => currentSpeedKmh;
     public Rigidbody CarRigidbody => rb;
+    public float CurrentThrottle { get; private set; }
+    public float CurrentBrake { get; private set; }
+    public bool IsHandbraking { get; private set; }
 
     void Start()
     {
@@ -211,6 +214,10 @@ public class CarController : MonoBehaviour
             motorTorque = 0f;
             brakeTorque = 0f;
         }
+
+        CurrentThrottle = (vInput > 0.05f && forwardVelocity >= -0.8f) ? vInput : 0f;
+        CurrentBrake = spaceBrake ? 1.0f : ((vInput < -0.05f && forwardVelocity > 0.8f) ? -vInput : 0f);
+        IsHandbraking = spaceBrake;
 
         // Apply Motor Torque (All-Wheel Traction)
         if (rearLeftWheel != null)   rearLeftWheel.motorTorque  = motorTorque * 0.5f;
