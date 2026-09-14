@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -38,7 +38,10 @@ public class LeaderboardUI : MonoBehaviour
 
     void Update()
     {
-        if (RaceManager.Instance == null || !RaceManager.Instance.isRaceActive && !RaceManager.Instance.isCountdownActive)
+        if (RaceManager.Instance == null) return;
+
+        bool hasRacers = RaceManager.Instance.totalRacers > 0;
+        if (!RaceManager.Instance.isRaceActive && !RaceManager.Instance.isCountdownActive && !hasRacers)
             return;
 
         updateTimer += Time.deltaTime;

@@ -1,6 +1,8 @@
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Networking;
 
 public class TikTokLiveManager : MonoBehaviour
 {
@@ -19,6 +21,10 @@ public class TikTokLiveManager : MonoBehaviour
     public string streamerUsername = "tiktok_streamer";
     public int maxRacers = 50;
 
+    [Header("Local Bridge Settings")]
+    public string bridgeBaseUrl = "http://127.0.0.1:8765";
+    public bool isBridgeConnected = false;
+
     [System.Serializable]
     public class TikTokRacerEntry
     {
@@ -29,17 +35,39 @@ public class TikTokLiveManager : MonoBehaviour
         public int gridSlot;
     }
 
-    public List<TikTokRacerEntry> joinedRacers = new List<TikTokRacerEntry>();
-    private HashSet<string> joinedUsernames = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
-    private Dictionary<string, GameObject> userToCar = new Dictionary<string, GameObject>(System.StringComparer.OrdinalIgnoreCase);
-
-    private readonly string[] sampleSimulatedUsers = new string[]
+    [System.Serializable]
+    public class CheckLiveResponse
     {
-        "somchai_racing", "gamer_pro_th", "speedy_anna", "alex_drift", "nong_ploy",
-        "ninja_turbo", "boss_viper", "kitty_racer", "tony_apex", "fern_speed",
-        "super_mario", "fast_and_fun", "tiktok_star", "drift_king_99", "lucky_boy",
-        "shadow_runner", "fire_blaze", "cyber_racer", "turbo_max", "hyper_sonic"
-    };
+        public bool success;
+        public string username;
+        public bool is_live;
+        public string error;
+    }
+
+    [System.Serializable]
+    public class BridgeEventItem
+    {
+        public string type;
+        public string username;
+        public string nickname;
+        public string message;
+        public string gift_name;
+    }
+
+    [System.Serializable]
+    public class BridgeEventsResponse
+    {
+        public bool success;
+        public List<BridgeEventItem> events;
+    }
+
+    public List<TikTokRacerEntry> joinedRacers = new List<TikTokRacerEntry>();
+    private HashSet<string> joinedUsernames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, GameObject> userToCar = new Dictionary<string, GameObject>(StringComparer.OrdinalIgnoreCase);
+
+    public event Action OnRacersChanged;
+
+    private Coroutine pollCoroutine;
 
     void Awake()
     {
@@ -47,30 +75,167 @@ public class TikTokLiveManager : MonoBehaviour
         else Destroy(gameObject);
     }
 
-    public void ConnectToLive(string username)
+    void OnDestroy()
     {
-        streamerUsername = string.IsNullOrEmpty(username) ? "tiktok_streamer" : username.Replace("@", "");
+        Disconnect();
+    }
+
+    // ==========================================
+    // 1. CHECK LIVE STATUS (BEFORE CREATING ROOM)
+    // ==========================================
+    public void CheckIsLive(string username, Action<bool, string> callback)
+    {
+        StartCoroutine(CheckIsLiveCoroutine(username, callback));
+    }
+
+    private IEnumerator CheckIsLiveCoroutine(string username, Action<bool, string> callback)
+    {
+        string cleanUser = username.Replace("@", "").Trim();
+        string url = $"{bridgeBaseUrl}/check_live?username={UnityWebRequest.EscapeURL(cleanUser)}";
+
+        using (UnityWebRequest req = UnityWebRequest.Get(url))
+        {
+            req.timeout = 10;
+            yield return req.SendWebRequest();
+
+            if (req.result == UnityWebRequest.Result.Success)
+            {
+                try
+                {
+                    var res = JsonUtility.FromJson<CheckLiveResponse>(req.downloadHandler.text);
+                    if (res != null && res.is_live)
+                    {
+                        isBridgeConnected = true;
+                        callback?.Invoke(true, "");
+                        yield break;
+                    }
+                    else
+                    {
+                        string msg = (res != null && !string.IsNullOrEmpty(res.error)) 
+                            ? res.error 
+                            : "TikTok @ " + cleanUser + " ยังไม่ได้เริ่ม Live ในขณะนี้";
+                        callback?.Invoke(false, msg);
+                        yield break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    callback?.Invoke(false, "เกิดข้อผิดพลาดในการตรวจสอบสถานะ: " + ex.Message);
+                    yield break;
+                }
+            }
+            else
+            {
+                // Bridge server is not reachable
+                callback?.Invoke(false, "ไม่สามารถเชื่อมต่อกับ TikTok Bridge Server (127.0.0.1:8765) ได้\nกรุณารัน 'start_tiktok_bridge.bat' ก่อนสร้างห้อง");
+            }
+        }
+    }
+
+    // ==========================================
+    // 2. CONNECT TO LIVE & ENTER TRACK
+    // ==========================================
+    public void ConnectToLive(string username, int laps = 3)
+    {
+        streamerUsername = string.IsNullOrEmpty(username) ? "tiktok_streamer" : username.Replace("@", "").Trim();
         currentState = LiveState.WaitingLobby;
 
         joinedRacers.Clear();
         joinedUsernames.Clear();
         userToCar.Clear();
 
-        Debug.Log($"[TikTokLive] Connected to Live stream of @{streamerUsername}! Waiting for viewers to type ''a''...");
+        Debug.Log($"[TikTokLive] Starting TikTok Live room for @{streamerUsername} with {laps} laps!");
 
+        // Prepare race track starting grid
         if (RaceManager.Instance != null)
         {
-            RaceManager.Instance.PrepareTikTokLobby();
+            RaceManager.Instance.PrepareTikTokLobby(laps);
+        }
+
+        // Send start signal to bridge server and begin polling chat
+        StartCoroutine(StartBridgeListeningCoroutine(streamerUsername));
+
+        if (pollCoroutine != null) StopCoroutine(pollCoroutine);
+        pollCoroutine = StartCoroutine(PollBridgeEventsCoroutine());
+
+        OnRacersChanged?.Invoke();
+    }
+
+    private IEnumerator StartBridgeListeningCoroutine(string username)
+    {
+        string url = $"{bridgeBaseUrl}/start?username={UnityWebRequest.EscapeURL(username)}";
+        using (UnityWebRequest req = UnityWebRequest.PostWwwForm(url, ""))
+        {
+            yield return req.SendWebRequest();
+            if (req.result == UnityWebRequest.Result.Success)
+            {
+                Debug.Log($"[TikTokLive] Bridge is now listening to live chat of @{username}!");
+            }
+        }
+    }
+
+    private IEnumerator PollBridgeEventsCoroutine()
+    {
+        while (currentState == LiveState.WaitingLobby || currentState == LiveState.RacingLocked)
+        {
+            yield return new WaitForSeconds(0.6f);
+
+            string url = $"{bridgeBaseUrl}/events";
+            using (UnityWebRequest req = UnityWebRequest.Get(url))
+            {
+                yield return req.SendWebRequest();
+                if (req.result == UnityWebRequest.Result.Success)
+                {
+                    try
+                    {
+                        var res = JsonUtility.FromJson<BridgeEventsResponse>(req.downloadHandler.text);
+                        if (res != null && res.events != null && res.events.Count > 0)
+                        {
+                            foreach (var ev in res.events)
+                            {
+                                if (ev.type == "chat_a")
+                                {
+                                    ProcessChatMessage(ev.username, "a", null);
+                                }
+                                else if (ev.type == "gift")
+                                {
+                                    ProcessGift(ev.username, ev.gift_name);
+                                }
+                            }
+                        }
+                    }
+                    catch { }
+                }
+            }
         }
     }
 
     public void Disconnect()
     {
         currentState = LiveState.Disconnected;
+        if (pollCoroutine != null)
+        {
+            StopCoroutine(pollCoroutine);
+            pollCoroutine = null;
+        }
+
+        // Notify bridge to stop
+        StartCoroutine(StopBridgeCoroutine());
+
         joinedRacers.Clear();
         joinedUsernames.Clear();
         userToCar.Clear();
-        Debug.Log("[TikTokLive] Disconnected.");
+        OnRacersChanged?.Invoke();
+        Debug.Log("[TikTokLive] Disconnected from TikTok Live.");
+    }
+
+    private IEnumerator StopBridgeCoroutine()
+    {
+        string url = $"{bridgeBaseUrl}/stop";
+        using (UnityWebRequest req = UnityWebRequest.PostWwwForm(url, ""))
+        {
+            yield return req.SendWebRequest();
+        }
     }
 
     public void OnStartRace()
@@ -86,6 +251,9 @@ public class TikTokLiveManager : MonoBehaviour
         }
     }
 
+    // ==========================================
+    // 3. PROCESS VIEWER CHAT & SPAWN CAR
+    // ==========================================
     public bool ProcessChatMessage(string username, string message, Texture2D avatarTex = null)
     {
         if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(message)) return false;
@@ -109,13 +277,13 @@ public class TikTokLiveManager : MonoBehaviour
                     return false;
                 }
 
-                // Register and spawn car!
+                // Register and spawn car on the grid!
                 SpawnViewerCar(username, avatarTex);
                 return true;
             }
             else if (currentState == LiveState.RacingLocked)
             {
-                Debug.Log($"[TikTokLive] @{username} tried to join, but race is currently in progress! Must wait for next race.");
+                Debug.Log($"[TikTokLive] @{username} tried to join, but race is currently in progress!");
                 return false;
             }
         }
@@ -133,7 +301,7 @@ public class TikTokLiveManager : MonoBehaviour
             if (ai != null)
             {
                 ai.ApplyNitro(5.0f);
-                Debug.Log($"[TikTokLive] ⚡ NITRO BOOST activated for @{username} by gift ''{giftName}''!");
+                Debug.Log($"[TikTokLive] ⚡ NITRO BOOST activated for @{username} by gift '{giftName}'!");
             }
         }
     }
@@ -152,7 +320,7 @@ public class TikTokLiveManager : MonoBehaviour
             // Pick a random rival car
             foreach (var kvp in userToCar)
             {
-                if (!kvp.Key.Equals(sender, System.StringComparison.OrdinalIgnoreCase) && kvp.Value != null)
+                if (!kvp.Key.Equals(sender, StringComparison.OrdinalIgnoreCase) && kvp.Value != null)
                 {
                     targetCar = kvp.Value;
                     targetUsername = kvp.Key;
@@ -197,47 +365,13 @@ public class TikTokLiveManager : MonoBehaviour
 
             Debug.Log($"[TikTokLive] 🏎️ @{username} JOINED! Placed at Grid #{slotIdx + 1} ({joinedRacers.Count}/{maxRacers})");
 
-            var mm = FindObjectOfType<MenuManager>();
-            if (mm != null) mm.UpdateTikTokLobbyDisplay();
+            OnRacersChanged?.Invoke();
         }
     }
 
-    // ===== DEV SIMULATOR METHODS =====
-    public void SimulateViewerJoin()
-    {
-        if (currentState != LiveState.WaitingLobby)
-        {
-            Debug.LogWarning("[TikTokLive] Cannot join: not in waiting lobby!");
-            return;
-        }
-
-        string uname = $"user_{joinedRacers.Count + 1}";
-        if (joinedRacers.Count < sampleSimulatedUsers.Length)
-        {
-            uname = sampleSimulatedUsers[joinedRacers.Count];
-        }
-
-        ProcessChatMessage(uname, "a", null);
-    }
-
-    public void SimulateGiftNitro()
-    {
-        if (joinedRacers.Count == 0) return;
-        int randIdx = Random.Range(0, joinedRacers.Count);
-        string uname = joinedRacers[randIdx].username;
-        ProcessGift(uname, "Rose");
-    }
-
-    // ===== BOT RACER ADDITION =====
-    private static readonly string[] botNames = new string[]
-    {
-        "BOT_Speedy", "BOT_Apex", "BOT_Thunder", "BOT_Shadow", "BOT_Viper",
-        "BOT_Ghost", "BOT_Nitro", "BOT_Phantom", "BOT_Cyber", "BOT_Blaze",
-        "BOT_Storm", "BOT_Echo", "BOT_Titan", "BOT_Flash", "BOT_Raptor",
-        "BOT_Turbo", "BOT_Havoc", "BOT_Zenith", "BOT_Bullet", "BOT_Cosmo"
-    };
-    private int botCounter = 1;
-
+    // ==========================================
+    // 4. BOT RACER ADDITION (bot_<random number>)
+    // ==========================================
     public void AddBotRacer()
     {
         if (currentState != LiveState.WaitingLobby)
@@ -252,10 +386,14 @@ public class TikTokLiveManager : MonoBehaviour
             return;
         }
 
-        string bName = (botCounter - 1 < botNames.Length)
-            ? botNames[botCounter - 1]
-            : $"BOT_Racer_{botCounter}";
-        botCounter++;
+        // Name format as requested: bot_<random number>
+        string bName;
+        int attempts = 0;
+        do
+        {
+            bName = $"bot_{UnityEngine.Random.Range(1000, 9999)}";
+            attempts++;
+        } while (joinedUsernames.Contains(bName) && attempts < 20);
 
         ProcessChatMessage(bName, "a", null);
         Debug.Log($"[TikTokLive] 🤖 Added {bName} into the race! Total racers: {joinedRacers.Count}/{maxRacers}");
@@ -270,11 +408,10 @@ public class TikTokLiveManager : MonoBehaviour
         }
     }
 
-    public void SimulatePrank()
+    public void SimulateViewerJoin()
     {
-        if (joinedRacers.Count < 2) return;
-        int sIdx = Random.Range(0, joinedRacers.Count);
-        int tIdx = (sIdx + 1) % joinedRacers.Count;
-        ProcessPrank(joinedRacers[sIdx].username, joinedRacers[tIdx].username, "banana");
+        if (currentState != LiveState.WaitingLobby) return;
+        string uname = $"viewer_{UnityEngine.Random.Range(100, 999)}";
+        ProcessChatMessage(uname, "a", null);
     }
 }

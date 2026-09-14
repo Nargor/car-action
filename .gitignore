@@ -58,3 +58,6 @@ Build_WebGL/
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Screenshots
+Assets/Screenshots/

@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -28,23 +29,22 @@ public class MenuManager : MonoBehaviour
     public TextMeshProUGUI aiCountValueText;
     public TextMeshProUGUI totalRacersText;
 
-    [Header("TikTok Live Panel UI")]
+    [Header("TikTok Live Setup Form UI")]
     public TMP_InputField tiktokUsernameInput;
-    public Button connectTikTokButton;
-    public Button startTikTokRaceButton;
+    public Button createTikTokRoomButton;
     public Button backFromTikTokButton;
     public TextMeshProUGUI tiktokStatusText;
-    public TextMeshProUGUI tiktokJoinedCountText;
-    public Button simJoinButton;
-    public Button simNitroButton;
-    public Button simPrankButton;
-    public Button addBotButton;
-    public Button add5BotsButton;
+    public Slider tiktokLapsSlider;
+    public TextMeshProUGUI tiktokLapsValueText;
+    public Button btnTikTokLapsMinus;
+    public Button btnTikTokLapsPlus;
+    public TikTokJoinPanelManager tiktokJoinPanel;
 
     [Header("Selected Config")]
     public RaceManager.GameMode currentMode = RaceManager.GameMode.PlayerRace;
     public int selectedLaps = 3;
     public int selectedAICount = 5;
+    public int selectedTikTokLaps = 3;
 
     void Awake()
     {
@@ -98,16 +98,11 @@ public class MenuManager : MonoBehaviour
             lapsSlider.onValueChanged.AddListener(OnLapsChanged);
         }
 
-        // TikTok Live Panel Buttons
-        if (connectTikTokButton != null)
+        // TikTok Live Setup Form
+        if (createTikTokRoomButton != null)
         {
-            connectTikTokButton.onClick.RemoveAllListeners();
-            connectTikTokButton.onClick.AddListener(ConnectTikTokLive);
-        }
-        if (startTikTokRaceButton != null)
-        {
-            startTikTokRaceButton.onClick.RemoveAllListeners();
-            startTikTokRaceButton.onClick.AddListener(StartTikTokRace);
+            createTikTokRoomButton.onClick.RemoveAllListeners();
+            createTikTokRoomButton.onClick.AddListener(OnCreateTikTokRoomClicked);
         }
         if (backFromTikTokButton != null)
         {
@@ -117,45 +112,36 @@ public class MenuManager : MonoBehaviour
                 ShowTitle();
             });
         }
-
-        // Simulator Buttons
-        if (simJoinButton != null)
+        if (tiktokLapsSlider != null)
         {
-            simJoinButton.onClick.RemoveAllListeners();
-            simJoinButton.onClick.AddListener(() => {
-                if (TikTokLiveManager.Instance != null) TikTokLiveManager.Instance.SimulateViewerJoin();
+            tiktokLapsSlider.minValue = 1;
+            tiktokLapsSlider.maxValue = 10;
+            tiktokLapsSlider.value = selectedTikTokLaps;
+            tiktokLapsSlider.wholeNumbers = true;
+            tiktokLapsSlider.onValueChanged.RemoveAllListeners();
+            tiktokLapsSlider.onValueChanged.AddListener(OnTikTokLapsChanged);
+        }
+        if (btnTikTokLapsMinus != null)
+        {
+            btnTikTokLapsMinus.onClick.RemoveAllListeners();
+            btnTikTokLapsMinus.onClick.AddListener(() => {
+                selectedTikTokLaps = Mathf.Max(1, selectedTikTokLaps - 1);
+                if (tiktokLapsSlider != null) tiktokLapsSlider.value = selectedTikTokLaps;
+                UpdateTikTokLapsDisplay();
             });
         }
-        if (simNitroButton != null)
+        if (btnTikTokLapsPlus != null)
         {
-            simNitroButton.onClick.RemoveAllListeners();
-            simNitroButton.onClick.AddListener(() => {
-                if (TikTokLiveManager.Instance != null) TikTokLiveManager.Instance.SimulateGiftNitro();
-            });
-        }
-        if (simPrankButton != null)
-        {
-            simPrankButton.onClick.RemoveAllListeners();
-            simPrankButton.onClick.AddListener(() => {
-                if (TikTokLiveManager.Instance != null) TikTokLiveManager.Instance.SimulatePrank();
-            });
-        }
-        if (addBotButton != null)
-        {
-            addBotButton.onClick.RemoveAllListeners();
-            addBotButton.onClick.AddListener(() => {
-                if (TikTokLiveManager.Instance != null) TikTokLiveManager.Instance.AddBotRacer();
-            });
-        }
-        if (add5BotsButton != null)
-        {
-            add5BotsButton.onClick.RemoveAllListeners();
-            add5BotsButton.onClick.AddListener(() => {
-                if (TikTokLiveManager.Instance != null) TikTokLiveManager.Instance.AddMultipleBots(5);
+            btnTikTokLapsPlus.onClick.RemoveAllListeners();
+            btnTikTokLapsPlus.onClick.AddListener(() => {
+                selectedTikTokLaps = Mathf.Min(10, selectedTikTokLaps + 1);
+                if (tiktokLapsSlider != null) tiktokLapsSlider.value = selectedTikTokLaps;
+                UpdateTikTokLapsDisplay();
             });
         }
 
         UpdateLobbyDisplay();
+        UpdateTikTokLapsDisplay();
     }
 
     public void ShowTitle()
@@ -218,55 +204,95 @@ public class MenuManager : MonoBehaviour
         if (tiktokLobbyPanel != null) tiktokLobbyPanel.SetActive(true);
 
         if (tiktokStatusText != null)
-            tiktokStatusText.text = "STATUS: DISCONNECTED (ENTER USERNAME)";
-        if (tiktokJoinedCountText != null)
-            tiktokJoinedCountText.text = "RACERS JOINED: 0 / 50";
+            tiktokStatusText.text = "กรุณากรอก TikTok Username และเลือกจำนวนรอบแข่ง จากนั้นกดสร้างห้อง";
 
-        if (startTikTokRaceButton != null)
-            startTikTokRaceButton.interactable = false;
+        UpdateTikTokLapsDisplay();
     }
 
-    public void ConnectTikTokLive()
+    public void OnTikTokLapsChanged(float v)
+    {
+        selectedTikTokLaps = (int)v;
+        UpdateTikTokLapsDisplay();
+    }
+
+    public void UpdateTikTokLapsDisplay()
+    {
+        if (tiktokLapsValueText != null)
+        {
+            tiktokLapsValueText.text = $"{selectedTikTokLaps} LAPS";
+        }
+    }
+
+    public void OnCreateTikTokRoomClicked()
     {
         string uname = (tiktokUsernameInput != null && !string.IsNullOrEmpty(tiktokUsernameInput.text))
-            ? tiktokUsernameInput.text.Trim()
-            : "tiktok_racing_host";
+            ? tiktokUsernameInput.text.Trim().Replace("@", "")
+            : "";
+
+        if (string.IsNullOrEmpty(uname))
+        {
+            if (tiktokStatusText != null)
+            {
+                tiktokStatusText.text = "<color=#FF4444>⚠️ กรุณากรอก TikTok Username ก่อนกดสร้างห้อง</color>";
+            }
+            return;
+        }
+
+        bool isDevMode = uname.StartsWith("test", StringComparison.OrdinalIgnoreCase) ||
+                         uname.StartsWith("demo", StringComparison.OrdinalIgnoreCase) ||
+                         uname.StartsWith("sim", StringComparison.OrdinalIgnoreCase);
+
+        if (isDevMode)
+        {
+            if (createTikTokRoomButton != null) createTikTokRoomButton.interactable = true;
+            EnterTikTokTrack(uname, selectedTikTokLaps);
+            return;
+        }
+
+        if (createTikTokRoomButton != null)
+            createTikTokRoomButton.interactable = false;
+
+        if (tiktokStatusText != null)
+            tiktokStatusText.text = $"<color=#00D2FF>⏳ กำลังตรวจสอบสถานะ TikTok Live ของ @{uname}...</color>";
 
         if (TikTokLiveManager.Instance != null)
         {
-            TikTokLiveManager.Instance.ConnectToLive(uname);
-        }
+            TikTokLiveManager.Instance.CheckIsLive(uname, (isLive, errMsg) =>
+            {
+                if (createTikTokRoomButton != null)
+                    createTikTokRoomButton.interactable = true;
 
-        // Show HUD so streamer can see the starting grid in background while waiting!
-        if (hudPanel != null) hudPanel.SetActive(true);
+                if (!isLive)
+                {
+                    if (tiktokStatusText != null)
+                    {
+                        tiktokStatusText.text = $"<color=#FF4444>⚠️ ไม่สามารถสร้างห้องได้!\n{errMsg}\nกรุณาเริ่ม Live บน TikTok ก่อนสร้างห้อง</color>";
+                    }
+                    return;
+                }
 
-        if (tiktokStatusText != null)
-            tiktokStatusText.text = ThaiFontAdjuster.Adjust($"<color=#00FF88>● LIVE CONNECTED: @{uname}</color>\n<size=85%><color=#FFD700>พิมพ์ ''a'' ในช่องแชท TikTok เพื่อลงแข่ง!</color></size>");
-
-        if (startTikTokRaceButton != null)
-            startTikTokRaceButton.interactable = true;
-
-        UpdateTikTokLobbyDisplay();
-    }
-
-    public void UpdateTikTokLobbyDisplay()
-    {
-        int count = TikTokLiveManager.Instance != null ? TikTokLiveManager.Instance.joinedRacers.Count : 0;
-        if (tiktokJoinedCountText != null)
-        {
-            tiktokJoinedCountText.text = $"RACERS JOINED: <color=#FFD700><b>{count}</b></color> / 50";
+                // If live: enter track!
+                EnterTikTokTrack(uname, selectedTikTokLaps);
+            });
         }
     }
 
-    public void StartTikTokRace()
+    public void EnterTikTokTrack(string uname, int laps)
     {
-        // Close TikTok Lobby form and start race
         if (tiktokLobbyPanel != null) tiktokLobbyPanel.SetActive(false);
         if (hudPanel != null) hudPanel.SetActive(true);
 
         if (TikTokLiveManager.Instance != null)
         {
-            TikTokLiveManager.Instance.OnStartRace();
+            TikTokLiveManager.Instance.ConnectToLive(uname, laps);
+        }
+
+        // Show the In-Track Join UI and hide Leaderboard until F6
+        var joinMgr = tiktokJoinPanel != null ? tiktokJoinPanel : TikTokJoinPanelManager.Instance;
+        if (joinMgr != null)
+        {
+            joinMgr.SetJoinPanelVisible(true);
+            joinMgr.SetLeaderboardAndCameraVisible(false);
         }
     }
 
