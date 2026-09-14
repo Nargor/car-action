@@ -88,27 +88,24 @@ public class TikTokJoinPanelManager : MonoBehaviour
     }
 
     // ==========================================
-    // HOTKEYS: F7 (Join Panel), F6 / F4 (Leaderboard & Camera)
+    // HOTKEYS: F7 (Join Panel), F6 (Leaderboard & Camera Toggle)
     // ==========================================
     private void HandleHotkeys()
     {
         bool f7 = false;
         bool f6 = false;
-        bool f4 = false;
 
         var kb = Keyboard.current;
         if (kb != null)
         {
             if (kb.f7Key.wasPressedThisFrame) f7 = true;
             if (kb.f6Key.wasPressedThisFrame) f6 = true;
-            if (kb.f4Key.wasPressedThisFrame) f4 = true;
         }
 
         try
         {
             if (!f7) f7 = Input.GetKeyDown(KeyCode.F7);
             if (!f6) f6 = Input.GetKeyDown(KeyCode.F6);
-            if (!f4) f4 = Input.GetKeyDown(KeyCode.F4);
         }
         catch { }
 
@@ -122,16 +119,11 @@ public class TikTokJoinPanelManager : MonoBehaviour
             }
         }
 
-        // F6: Open Leaderboard + Show Camera Toolbar
+        // F6: Toggle Leaderboard + Camera Toolbar
         if (f6)
         {
-            SetLeaderboardAndCameraVisible(true);
-        }
-
-        // F4: Close Leaderboard
-        if (f4)
-        {
-            SetLeaderboardAndCameraVisible(false);
+            bool isCurrentlyOpen = (leaderboardWindow != null && leaderboardWindow.activeSelf);
+            SetLeaderboardAndCameraVisible(!isCurrentlyOpen);
         }
     }
 
