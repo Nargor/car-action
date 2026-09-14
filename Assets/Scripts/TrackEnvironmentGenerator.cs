@@ -19,10 +19,12 @@ namespace RaceTrack
         public int grandstandStep = 30;
 
         [Header("Offsets from Track Center")]
-        public float treeMinDist = 20f;
-        public float treeMaxDist = 38f;
-        public float buildingMinDist = 32f;
-        public float buildingMaxDist = 65f;
+        [Tooltip("Minimum distance for trees from track centerline (road is 17.5m, curbs 19.3m, barriers 20m)")]
+        public float treeMinDist = 26.5f;
+        public float treeMaxDist = 45.0f;
+        [Tooltip("Minimum distance for building centers (accounting for building width/corners)")]
+        public float buildingMinDist = 48.0f;
+        public float buildingMaxDist = 85.0f;
 
         [Header("Materials")]
         public Material treeTrunkMaterial;
@@ -97,7 +99,7 @@ namespace RaceTrack
                 sharedBldgMats[m].color = buildingColors[m];
             }
 
-            // 1. Generate Trees along grass verges
+            // 1. Generate Trees along grass verges (Must be >= 26m from ALL track segments)
             int treeCount = 0;
             for (int i = 0; i < total; i += treeStep)
             {
@@ -109,8 +111,11 @@ namespace RaceTrack
                 float outerDist = Random.Range(treeMinDist, treeMaxDist);
                 Vector3 posOuter = p + right * outerDist;
                 posOuter.y = GetGroundHeight(posOuter.x, posOuter.z);
-                CreateTree(treesParent.transform, posOuter, Random.Range(0.85f, 1.35f), i % 3 == 0);
-                treeCount++;
+                if (IsSafeFromTrack(posOuter, 26.0f, pts))
+                {
+                    CreateTree(treesParent.transform, posOuter, Random.Range(0.85f, 1.35f), i % 3 == 0);
+                    treeCount++;
+                }
 
                 // Inner side tree (chance based to leave open vistas)
                 if (Random.value > 0.35f)
@@ -118,12 +123,15 @@ namespace RaceTrack
                     float innerDist = Random.Range(treeMinDist, treeMaxDist);
                     Vector3 posInner = p - right * innerDist;
                     posInner.y = GetGroundHeight(posInner.x, posInner.z);
-                    CreateTree(treesParent.transform, posInner, Random.Range(0.8f, 1.25f), (i + 1) % 3 == 0);
-                    treeCount++;
+                    if (IsSafeFromTrack(posInner, 26.0f, pts))
+                    {
+                        CreateTree(treesParent.transform, posInner, Random.Range(0.8f, 1.25f), (i + 1) % 3 == 0);
+                        treeCount++;
+                    }
                 }
             }
 
-            // 2. Generate Buildings / Houses / City Skyline
+            // 2. Generate Buildings / Houses / City Skyline (Must be >= 46m from ALL track segments)
             int buildingCount = 0;
 
             for (int i = 0; i < total; i += buildingStep)
@@ -141,9 +149,12 @@ namespace RaceTrack
                     float dist = Random.Range(buildingMinDist, buildingMaxDist);
                     Vector3 pos = p + right * dist;
                     pos.y = GetGroundHeight(pos.x, pos.z);
-                    Quaternion rot = Quaternion.LookRotation(t, Vector3.up);
-                    CreateBuilding(buildingsParent.transform, pos, rot, sharedBldgMats[i % sharedBldgMats.Length]);
-                    buildingCount++;
+                    if (IsSafeFromTrack(pos, 46.0f, pts))
+                    {
+                        Quaternion rot = Quaternion.LookRotation(t, Vector3.up);
+                        CreateBuilding(buildingsParent.transform, pos, rot, sharedBldgMats[i % sharedBldgMats.Length]);
+                        buildingCount++;
+                    }
                 }
 
                 if (placeInner)
@@ -151,13 +162,16 @@ namespace RaceTrack
                     float dist = Random.Range(buildingMinDist + 5f, buildingMaxDist + 15f);
                     Vector3 pos = p - right * dist;
                     pos.y = GetGroundHeight(pos.x, pos.z);
-                    Quaternion rot = Quaternion.LookRotation(t, Vector3.up);
-                    CreateBuilding(buildingsParent.transform, pos, rot, sharedBldgMats[(i + 2) % sharedBldgMats.Length]);
-                    buildingCount++;
+                    if (IsSafeFromTrack(pos, 46.0f, pts))
+                    {
+                        Quaternion rot = Quaternion.LookRotation(t, Vector3.up);
+                        CreateBuilding(buildingsParent.transform, pos, rot, sharedBldgMats[(i + 2) % sharedBldgMats.Length]);
+                        buildingCount++;
+                    }
                 }
             }
 
-            // 3. Generate Grandstands & Sponsor Billboards near straightaways
+            // 3. Generate Grandstands & Sponsor Billboards near straightaways (Must be >= 34m from ALL track segments)
             int standCount = 0;
             for (int i = 0; i < total; i += grandstandStep)
             {
@@ -166,14 +180,66 @@ namespace RaceTrack
                 Vector3 right = Vector3.Cross(Vector3.up, t).normalized;
 
                 // Grandstand on outer side
-                Vector3 standPos = p + right * 24f;
+                Vector3 standPos = p + right * 36f;
                 standPos.y = GetGroundHeight(standPos.x, standPos.z);
-                Quaternion standRot = Quaternion.LookRotation(-right, Vector3.up); // Facing track!
-                CreateGrandstand(grandstandsParent.transform, standPos, standRot);
-                standCount++;
+                if (IsSafeFromTrack(standPos, 34.0f, pts))
+                {
+                    Quaternion standRot = Quaternion.LookRotation(-right, Vector3.up); // Facing track!
+                    CreateGrandstand(grandstandsParent.transform, standPos, standRot);
+                    standCount++;
+                }
             }
 
-            Debug.Log($"<color=#00FF88><b>[TrackEnvironmentGenerator]</b> Environment built! Trees: {treeCount}, Buildings: {buildingCount}, Grandstands: {standCount}</color>");
+            Debug.Log($"<color=#00FF88><b>[TrackEnvironmentGenerator]</b> Environment built safely! Trees: {treeCount}, Buildings: {buildingCount}, Grandstands: {standCount}</color>");
+        }
+
+        /// <summary>
+        /// Mathematically verifies that candidatePos is at least minSafeRadius meters away from ALL segments of the track circuit.
+        /// </summary>
+        private bool IsSafeFromTrack(Vector3 candidatePos, float minSafeRadius, Vector3[] trackPts)
+        {
+            if (trackPts == null || trackPts.Length < 2) return true;
+            float minSafeSqr = minSafeRadius * minSafeRadius;
+            float cx = candidatePos.x;
+            float cz = candidatePos.z;
+            int len = trackPts.Length;
+
+            for (int i = 0; i < len; i++)
+            {
+                int next = (i + 1) % len;
+                float p1x = trackPts[i].x;
+                float p1z = trackPts[i].z;
+                float p2x = trackPts[next].x;
+                float p2z = trackPts[next].z;
+
+                float segDx = p2x - p1x;
+                float segDz = p2z - p1z;
+                float segLenSqr = segDx * segDx + segDz * segDz;
+
+                float distSqr;
+                if (segLenSqr < 0.0001f)
+                {
+                    float dx = cx - p1x;
+                    float dz = cz - p1z;
+                    distSqr = dx * dx + dz * dz;
+                }
+                else
+                {
+                    float u = Mathf.Clamp01(((cx - p1x) * segDx + (cz - p1z) * segDz) / segLenSqr);
+                    float projX = p1x + u * segDx;
+                    float projZ = p1z + u * segDz;
+                    float dx = cx - projX;
+                    float dz = cz - projZ;
+                    distSqr = dx * dx + dz * dz;
+                }
+
+                if (distSqr < minSafeSqr)
+                {
+                    return false; // Intrusion detected!
+                }
+            }
+
+            return true;
         }
 
         [ContextMenu("Clear Environment")]
