@@ -44,6 +44,7 @@ Build_WebGL/
 *.wasm
 *.data
 *.symbols.json
+*.log
 *.apk
 *.aab
 *.unitypackage

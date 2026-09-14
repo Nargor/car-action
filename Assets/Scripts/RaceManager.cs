@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using RaceTrack;
@@ -288,6 +288,38 @@ public class RaceManager : MonoBehaviour
     {
         totalRacers = allRacers.Count;
         StartCoroutine(RaceCountdownSequence());
+    }
+
+    public void StopRaceAndReset()
+    {
+        StopAllCoroutines();
+        isRaceActive = false;
+        isCountdownActive = false;
+        ClearPreviousRace();
+        allRacers.Clear();
+
+        if (playerCar != null)
+        {
+            playerCar.controlsEnabled = false;
+            var rb = playerCar.GetComponent<Rigidbody>();
+            if (rb != null)
+            {
+                rb.linearVelocity = Vector3.zero;
+                rb.angularVelocity = Vector3.zero;
+            }
+        }
+
+        var lapTimer = FindObjectOfType<LapTimer>();
+        if (lapTimer != null)
+        {
+            lapTimer.ResetTimer();
+        }
+
+        if (hudController != null)
+        {
+            hudController.HideCountdown();
+            hudController.HideFinishScreen();
+        }
     }
 
     private void ClearPreviousRace()

@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.Events;
 
 public class LapTimer : MonoBehaviour
@@ -30,6 +30,16 @@ public class LapTimer : MonoBehaviour
         RaceStarted = true;
         RaceFinished = false;
         Debug.Log($"[LapTimer] Race Started with {totalLaps} Laps!");
+    }
+
+    public void ResetTimer()
+    {
+        CurrentLap = 1;
+        CurrentLapTime = 0f;
+        TotalRaceTime = 0f;
+        BestLapTime = float.MaxValue;
+        RaceStarted = false;
+        RaceFinished = false;
     }
 
     void Update()

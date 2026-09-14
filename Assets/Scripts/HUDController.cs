@@ -255,6 +255,11 @@ public class HUDController : MonoBehaviour
         if (countdownBanner != null) countdownBanner.SetActive(false);
     }
 
+    public void HideFinishScreen()
+    {
+        if (finishPanel != null) finishPanel.SetActive(false);
+    }
+
     public void ShowFinishScreen()
     {
         if (finishPanel != null)
