@@ -29,7 +29,6 @@ echo [INFO] Found Unity: "!UNITY_EXE!"
 
 :: 2. Locate Project Path
 set "PROJECT_PATH=%~dp0"
-:: Strip trailing backslash if present
 if "%PROJECT_PATH:~-1%"=="\" set "PROJECT_PATH=%PROJECT_PATH:~0,-1%"
 
 if not exist "!PROJECT_PATH!\Assets" (
@@ -40,7 +39,34 @@ if not exist "!PROJECT_PATH!\Assets" (
 
 echo [INFO] Project Path: "!PROJECT_PATH!"
 
-:: 3. Prepare Build and Log Directory
+:: 3. Check if Unity Editor is currently holding the project lock
+if exist "!PROJECT_PATH!\Temp\UnityLockfile" (
+    echo.
+    echo ===================================================
+    echo [NOTICE] Unity Editor is currently OPEN!
+    echo Unity is running and holding the project lockfile.
+    echo.
+    echo Options:
+    echo   [1] Click menu in Unity Editor: "Build" -^> "Build Windows (PC)"
+    echo   [2] Let this script close Unity and build now
+    echo ===================================================
+    echo.
+    set /p "CLOSE_UNITY=Do you want to close Unity Editor and build now? (Y/N): "
+    if /i "!CLOSE_UNITY!"=="Y" (
+        echo [INFO] Closing Unity Editor...
+        taskkill /F /IM Unity.exe >nul 2>&1
+        timeout /t 2 >nul
+        if exist "!PROJECT_PATH!\Temp\UnityLockfile" del /f /q "!PROJECT_PATH!\Temp\UnityLockfile" >nul 2>&1
+        echo [INFO] Unity Editor closed. Proceeding to build...
+    ) else (
+        echo [INFO] Build cancelled. You can build inside Unity Editor via menu: Build -^> Build Windows (PC)
+        echo.
+        pause
+        exit /b 0
+    )
+)
+
+:: 4. Prepare Build and Log Directory
 if not exist "!PROJECT_PATH!\Builds\PC" mkdir "!PROJECT_PATH!\Builds\PC"
 set "LOG_FILE=!PROJECT_PATH!\Builds\build_windows.log"
 
@@ -50,7 +76,7 @@ echo Log file: "!LOG_FILE!"
 echo Please wait, this may take 1-3 minutes...
 echo.
 
-:: 4. Run Unity Build in Batchmode
+:: 5. Run Unity Build in Batchmode
 "!UNITY_EXE!" -quit -batchmode -projectPath "!PROJECT_PATH!" -executeMethod BuildPipelineScript.BuildWindows -logFile "!LOG_FILE!"
 
 set BUILD_EXIT_CODE=%ERRORLEVEL%
