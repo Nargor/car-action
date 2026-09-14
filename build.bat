@@ -39,22 +39,26 @@ if not exist "!PROJECT_PATH!\Assets" (
 
 echo [INFO] Project Path: "!PROJECT_PATH!"
 
-:: 3. Check if Unity Editor is currently holding the project lock
-if exist "!PROJECT_PATH!\Temp\UnityLockfile" (
+:: 3. Check if Unity.exe is ACTUALLY running right now
+tasklist /FI "IMAGENAME eq Unity.exe" 2>NUL | find /I /N "Unity.exe">NUL
+if "%ERRORLEVEL%"=="0" (
     echo.
     echo ===================================================
     echo [NOTICE] Unity Editor is currently OPEN!
     echo.
-    echo Since Unity is open, you do NOT need to run this .bat file!
-    echo Simply click the top menu inside Unity Editor:
-    echo.
-    echo    ===^> Menu "Build" -^> "Build Windows (PC)"
-    echo.
-    echo (Or close Unity Editor first, then run this .bat file)
+    echo Since Unity is currently open in the background:
+    echo   - Please CLOSE Unity Editor first to run this .bat file,
+    echo   - OR click the top menu inside Unity:
+    echo     ===^> Menu "Build" -^> "Build Windows (PC)"
     echo ===================================================
     echo.
     pause
     exit /b 0
+)
+
+:: If Unity is NOT running, delete any leftover stale lockfile
+if exist "!PROJECT_PATH!\Temp\UnityLockfile" (
+    del /f /q "!PROJECT_PATH!\Temp\UnityLockfile" >nul 2>&1
 )
 
 :: 4. Prepare Build and Log Directory
@@ -64,7 +68,7 @@ set "LOG_FILE=!PROJECT_PATH!\Builds\build_windows.log"
 echo.
 echo [BUILDING] Compiling Windows Standalone 64-bit player...
 echo Log file: "!LOG_FILE!"
-echo Please wait, this may take 1-3 minutes...
+echo Please wait, this takes about 1-2 minutes...
 echo.
 
 :: 5. Run Unity Build in Batchmode
@@ -79,8 +83,7 @@ if %BUILD_EXIT_CODE% EQU 0 (
         echo [SUCCESS] Windows PC build completed successfully!
         echo Output: !PROJECT_PATH!\Builds\PC\car-action.exe
     ) else (
-        echo [WARNING] Unity exited with code 0 but car-action.exe was not found.
-        echo Check log: !LOG_FILE!
+        echo [WARNING] Build exited with code 0. Check log: !LOG_FILE!
     )
 ) else (
     echo [FAILED] Build failed with exit code: %BUILD_EXIT_CODE%
