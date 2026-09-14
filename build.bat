@@ -44,26 +44,17 @@ if exist "!PROJECT_PATH!\Temp\UnityLockfile" (
     echo.
     echo ===================================================
     echo [NOTICE] Unity Editor is currently OPEN!
-    echo Unity is running and holding the project lockfile.
     echo.
-    echo Options:
-    echo   [1] Click menu in Unity Editor: "Build" -^> "Build Windows (PC)"
-    echo   [2] Let this script close Unity and build now
+    echo Since Unity is open, you do NOT need to run this .bat file!
+    echo Simply click the top menu inside Unity Editor:
+    echo.
+    echo    ===^> Menu "Build" -^> "Build Windows (PC)"
+    echo.
+    echo (Or close Unity Editor first, then run this .bat file)
     echo ===================================================
     echo.
-    set /p "CLOSE_UNITY=Do you want to close Unity Editor and build now? (Y/N): "
-    if /i "!CLOSE_UNITY!"=="Y" (
-        echo [INFO] Closing Unity Editor...
-        taskkill /F /IM Unity.exe >nul 2>&1
-        timeout /t 2 >nul
-        if exist "!PROJECT_PATH!\Temp\UnityLockfile" del /f /q "!PROJECT_PATH!\Temp\UnityLockfile" >nul 2>&1
-        echo [INFO] Unity Editor closed. Proceeding to build...
-    ) else (
-        echo [INFO] Build cancelled. You can build inside Unity Editor via menu: Build -^> Build Windows (PC)
-        echo.
-        pause
-        exit /b 0
-    )
+    pause
+    exit /b 0
 )
 
 :: 4. Prepare Build and Log Directory
