@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using UnityEngine;
 using UnityEditor;
@@ -55,6 +55,7 @@ public static class BuildPipelineScript
         // WebGL compatibility settings
         PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Disabled;
         PlayerSettings.WebGL.decompressionFallback = true;
+        PlayerSettings.WebGL.exceptionSupport = WebGLExceptionSupport.FullWithStacktrace;
 
         BuildPlayerOptions options = new BuildPlayerOptions
         {
