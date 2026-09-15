@@ -131,6 +131,7 @@ public static class GiftActionConfig
                 giftId = "5655",
                 giftName = "Rose",
                 diamondCost = 1,
+                giftIconUrl = "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.png",
                 actionType = GiftActionType.SpeedBoost,
                 duration = 4.0f,
                 intensity = 1.5f,
@@ -138,9 +139,10 @@ public static class GiftActionConfig
             },
             new GiftActionItem
             {
-                giftId = "5827",
+                giftId = "5269",
                 giftName = "TikTok",
                 diamondCost = 1,
+                giftIconUrl = "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/802a21ae29f9fae5abe3693de9f874bd~tplv-obj.png",
                 actionType = GiftActionType.DropBomb,
                 duration = 3.0f,
                 intensity = 1.0f,
@@ -148,9 +150,10 @@ public static class GiftActionConfig
             },
             new GiftActionItem
             {
-                giftId = "5656",
+                giftId = "5879",
                 giftName = "Doughnut",
                 diamondCost = 30,
+                giftIconUrl = "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/4e7ad6bdf0a1d860c538f38026d4e812~tplv-obj.png",
                 actionType = GiftActionType.ShootRPG,
                 duration = 3.5f,
                 intensity = 2.0f,
@@ -158,9 +161,10 @@ public static class GiftActionConfig
             },
             new GiftActionItem
             {
-                giftId = "5657",
+                giftId = "6104",
                 giftName = "Cap",
                 diamondCost = 99,
+                giftIconUrl = "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/6c2ab2da19249ea570a2ece5e3377f04~tplv-obj.png",
                 actionType = GiftActionType.SlowAll,
                 duration = 5.0f,
                 intensity = 0.4f,
@@ -168,9 +172,10 @@ public static class GiftActionConfig
             },
             new GiftActionItem
             {
-                giftId = "6050",
+                giftId = "7168",
                 giftName = "Money Gun",
                 diamondCost = 500,
+                giftIconUrl = "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/e0589e95a2b41970f0f30f6202f5fce6~tplv-obj.png",
                 actionType = GiftActionType.SpeedBoost,
                 duration = 8.0f,
                 intensity = 2.2f,

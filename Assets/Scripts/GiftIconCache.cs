@@ -1,6 +1,8 @@
 using System;
+using System.IO;
 using System.Collections;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -26,6 +28,8 @@ public class GiftIconCache : MonoBehaviour
     }
     private static GiftIconCache _instance;
 
+    public static event Action<string, Sprite> OnIconLoaded;
+
     private Dictionary<string, Sprite> spriteCache = new Dictionary<string, Sprite>(StringComparer.OrdinalIgnoreCase);
     private HashSet<string> pendingDownloads = new HashSet<string>();
 
@@ -41,6 +45,28 @@ public class GiftIconCache : MonoBehaviour
             Destroy(gameObject);
             return;
         }
+
+        EnsureDiskCacheDirectory();
+    }
+
+    private void EnsureDiskCacheDirectory()
+    {
+        try
+        {
+            string dir = Path.Combine(Application.persistentDataPath, "GiftIcons");
+            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[GiftIconCache] Could not create disk cache dir: {ex.Message}");
+        }
+    }
+
+    private string GetDiskCachePath(string key)
+    {
+        string dir = Path.Combine(Application.persistentDataPath, "GiftIcons");
+        string safeKey = Regex.Replace(key, @"[^a-zA-Z0-9_\-]", "_");
+        return Path.Combine(dir, safeKey + ".png");
     }
 
     public static Sprite GetSprite(string giftName, string iconUrl = "")
@@ -51,19 +77,49 @@ public class GiftIconCache : MonoBehaviour
     public Sprite GetGiftSprite(string giftName, string iconUrl = "")
     {
         if (string.IsNullOrEmpty(giftName)) giftName = "Gift";
-
         string key = giftName.Trim().ToLower();
+
+        // 1. In-memory cache check
         if (spriteCache.TryGetValue(key, out Sprite cached) && cached != null)
         {
             return cached;
         }
 
-        // Generate procedural fallback sprite first so UI is never blank
+        // 2. Persistent Disk Cache check
+        string diskPath = GetDiskCachePath(key);
+        if (File.Exists(diskPath))
+        {
+            try
+            {
+                byte[] bytes = File.ReadAllBytes(diskPath);
+                Texture2D diskTex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                if (diskTex.LoadImage(bytes))
+                {
+                    diskTex.filterMode = FilterMode.Bilinear;
+                    Sprite diskSprite = Sprite.Create(diskTex, new Rect(0, 0, diskTex.width, diskTex.height), new Vector2(0.5f, 0.5f));
+                    spriteCache[key] = diskSprite;
+                    return diskSprite;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[GiftIconCache] Disk cache read error: {ex.Message}");
+            }
+        }
+
+        // 3. Fallback URL lookup if not explicitly passed
+        if (string.IsNullOrEmpty(iconUrl))
+        {
+            iconUrl = TikTokGiftDictionary.GetIconUrl(giftName);
+        }
+
+        // 4. Procedural fallback sprite so UI is NEVER blank or pink
         Sprite proceduralSprite = GenerateProceduralBadge(giftName);
         spriteCache[key] = proceduralSprite;
 
-        // If a remote URL is supplied, try downloading in the background
-        if (!string.IsNullOrEmpty(iconUrl) && !pendingDownloads.Contains(iconUrl) && (iconUrl.StartsWith("http://") || iconUrl.StartsWith("https://")))
+        // 5. Download in background if valid remote URL
+        if (!string.IsNullOrEmpty(iconUrl) && !pendingDownloads.Contains(iconUrl) &&
+            (iconUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || iconUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase)))
         {
             StartCoroutine(DownloadIconRoutine(key, iconUrl));
         }
@@ -74,9 +130,18 @@ public class GiftIconCache : MonoBehaviour
     private IEnumerator DownloadIconRoutine(string key, string url)
     {
         pendingDownloads.Add(url);
-        using (UnityWebRequest req = UnityWebRequestTexture.GetTexture(url))
+
+        // Normalize URL: TikTok CDN supports .png directly for all webp endpoints
+        string fetchUrl = url;
+        if (fetchUrl.EndsWith(".webp", StringComparison.OrdinalIgnoreCase))
         {
-            req.timeout = 5;
+            fetchUrl = fetchUrl.Substring(0, fetchUrl.Length - 5) + ".png";
+        }
+
+        using (UnityWebRequest req = UnityWebRequestTexture.GetTexture(fetchUrl))
+        {
+            req.SetRequestHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+            req.timeout = 8;
             yield return req.SendWebRequest();
 
             if (req.result == UnityWebRequest.Result.Success)
@@ -84,8 +149,49 @@ public class GiftIconCache : MonoBehaviour
                 var tex = DownloadHandlerTexture.GetContent(req);
                 if (tex != null)
                 {
+                    tex.filterMode = FilterMode.Bilinear;
                     var newSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
                     spriteCache[key] = newSprite;
+
+                    // Save to persistent disk cache
+                    try
+                    {
+                        string diskPath = GetDiskCachePath(key);
+                        byte[] pngBytes = tex.EncodeToPNG();
+                        if (pngBytes != null && pngBytes.Length > 0)
+                        {
+                            File.WriteAllBytes(diskPath, pngBytes);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogWarning($"[GiftIconCache] Failed to write disk cache for {key}: {ex.Message}");
+                    }
+
+                    // Notify UI listeners
+                    OnIconLoaded?.Invoke(key, newSprite);
+                }
+            }
+            else
+            {
+                // Fallback to original url if png failed
+                if (fetchUrl != url)
+                {
+                    using (UnityWebRequest reqOriginal = UnityWebRequestTexture.GetTexture(url))
+                    {
+                        reqOriginal.timeout = 8;
+                        yield return reqOriginal.SendWebRequest();
+                        if (reqOriginal.result == UnityWebRequest.Result.Success)
+                        {
+                            var tex2 = DownloadHandlerTexture.GetContent(reqOriginal);
+                            if (tex2 != null)
+                            {
+                                var s2 = Sprite.Create(tex2, new Rect(0, 0, tex2.width, tex2.height), new Vector2(0.5f, 0.5f));
+                                spriteCache[key] = s2;
+                                OnIconLoaded?.Invoke(key, s2);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -123,29 +229,23 @@ public class GiftIconCache : MonoBehaviour
                     continue;
                 }
 
-                // Anti-aliased outer border
                 float outerAlpha = Mathf.Clamp01(radius + 1f - dist);
 
                 if (dist >= innerRadius)
                 {
-                    // Outer ring border
                     Color c = borderColor;
                     c.a *= outerAlpha;
                     tex.SetPixel(x, y, c);
                 }
                 else
                 {
-                    // Radial gradient background
                     float t = dist / innerRadius;
                     Color bg = Color.Lerp(baseColor, darkBg, t * 0.85f);
-
-                    // Draw stylized internal glyph based on gift type
                     float symbolAlpha = GetSymbolMask(nameLower, x, y, size);
                     if (symbolAlpha > 0.05f)
                     {
                         bg = Color.Lerp(bg, Color.white, symbolAlpha * 0.95f);
                     }
-
                     bg.a = outerAlpha;
                     tex.SetPixel(x, y, bg);
                 }
@@ -158,14 +258,13 @@ public class GiftIconCache : MonoBehaviour
 
     private float GetSymbolMask(string name, int x, int y, int size)
     {
-        float u = (float)x / size; // 0 to 1
-        float v = (float)y / size; // 0 to 1
-        float nx = u * 2f - 1f;    // -1 to 1
-        float ny = v * 2f - 1f;    // -1 to 1
+        float u = (float)x / size;
+        float v = (float)y / size;
+        float nx = u * 2f - 1f;
+        float ny = v * 2f - 1f;
 
         if (name.Contains("heart"))
         {
-            // Heart shape math: (x^2 + y^2 - 1)^3 - x^2 * y^3 <= 0
             float hx = nx * 1.35f;
             float hy = ny * 1.35f + 0.15f;
             float a = hx * hx + hy * hy - 0.45f;
@@ -173,60 +272,31 @@ public class GiftIconCache : MonoBehaviour
         }
         else if (name.Contains("rose") || name.Contains("flower"))
         {
-            // Rose blossom petals
             float r = Mathf.Sqrt(nx * nx + ny * ny);
             float angle = Mathf.Atan2(ny, nx);
             float petal = Mathf.Sin(angle * 5f) * 0.15f + 0.35f;
             if (r < petal) return 1f;
             if (r < 0.12f) return 0.2f;
         }
-        else if (name.Contains("star") || name.Contains("firework") || name.Contains("universe"))
-        {
-            // 4-pointed sparkle
-            float d = Mathf.Abs(nx) * Mathf.Abs(ny);
-            float r = Mathf.Sqrt(nx * nx + ny * ny);
-            if (r < 0.5f && (Mathf.Abs(nx) < 0.12f || Mathf.Abs(ny) < 0.12f || d < 0.025f)) return 1f;
-        }
         else if (name.Contains("car") || name.Contains("motorcycle"))
         {
-            // Sleek car / vehicle silhouette
             if (ny >= -0.2f && ny <= 0.15f && Mathf.Abs(nx) < 0.55f) return 1f;
             if (ny > 0.15f && ny <= 0.42f && nx >= -0.3f && nx <= 0.22f) return 1f;
-            // Wheels
             if (ny < -0.18f && (Mathf.Abs(nx - 0.35f) < 0.12f || Mathf.Abs(nx + 0.35f) < 0.12f)) return 0.2f;
         }
-        else if (name.Contains("crown") || name.Contains("castle") || name.Contains("lion"))
+        else if (name.Contains("doughnut") || name.Contains("donut"))
         {
-            // 3-pointed crown
-            if (ny >= -0.35f && ny <= 0.1f && Mathf.Abs(nx) < 0.48f) return 1f;
-            if (ny > 0.1f && ny <= 0.48f)
-            {
-                if (Mathf.Abs(nx) < 0.12f || Mathf.Abs(nx - 0.38f) < 0.12f || Mathf.Abs(nx + 0.38f) < 0.12f) return 1f;
-            }
-        }
-        else if (name.Contains("gun") || name.Contains("money"))
-        {
-            // Dollar sign $ or gun silhouette
-            if (Mathf.Abs(nx) < 0.08f && Mathf.Abs(ny) < 0.52f) return 1f;
-            if (ny > 0.12f && ny < 0.32f && nx > -0.3f && nx < 0.25f) return 1f;
-            if (ny > -0.32f && ny < -0.12f && nx > -0.25f && nx < 0.3f) return 1f;
-        }
-        else if (name.Contains("doughnut") || name.Contains("donut") || name.Contains("ring"))
-        {
-            // Donut ring
             float r = Mathf.Sqrt(nx * nx + ny * ny);
             if (r >= 0.22f && r <= 0.52f) return 1f;
         }
         else if (name.Contains("cap") || name.Contains("hat"))
         {
-            // Baseball cap shape
             float r = Mathf.Sqrt(nx * nx + (ny + 0.05f) * (ny + 0.05f));
             if (r < 0.42f && ny >= -0.1f) return 1f;
             if (ny >= -0.28f && ny < -0.08f && nx >= -0.45f && nx <= 0.55f) return 1f;
         }
         else
         {
-            // Diamond / gem polygon default
             float diamond = Mathf.Abs(nx) + Mathf.Abs(ny);
             if (diamond <= 0.55f) return 1f;
         }

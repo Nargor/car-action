@@ -27,6 +27,43 @@ public class GiftQuickLauncherUI : MonoBehaviour
         EnsureInitialized();
     }
 
+    void OnEnable()
+    {
+        GiftIconCache.OnIconLoaded += HandleIconLoaded;
+    }
+
+    void OnDisable()
+    {
+        GiftIconCache.OnIconLoaded -= HandleIconLoaded;
+    }
+
+    private void HandleIconLoaded(string key, Sprite sprite)
+    {
+        if (sprite == null || modalRoot == null || !modalRoot.activeSelf) return;
+
+        var db = GiftActionManager.Instance != null ? GiftActionManager.Instance.database : GiftActionConfig.LoadConfig();
+        var actions = db != null && db.actions != null ? db.actions : null;
+        if (actions == null) return;
+
+        for (int i = 0; i < actions.Count && i < activeCardViews.Count; i++)
+        {
+            if (actions[i].giftName.Trim().Equals(key, StringComparison.OrdinalIgnoreCase))
+            {
+                var card = activeCardViews[i];
+                if (card != null && card.activeSelf)
+                {
+                    var imgIcon = card.transform.Find("IconContainer/Img_Icon")?.GetComponent<Image>();
+                    if (imgIcon == null) imgIcon = card.transform.Find("Img_Icon")?.GetComponent<Image>();
+                    if (imgIcon != null)
+                    {
+                        imgIcon.sprite = sprite;
+                        imgIcon.color = Color.white;
+                    }
+                }
+            }
+        }
+    }
+
     void Start()
     {
         EnsureInitialized();

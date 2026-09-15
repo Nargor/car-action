@@ -114,7 +114,23 @@ class BridgeRequestHandler(BaseHTTPRequestHandler):
             self._send_cors()
             self.end_headers()
             gifts_data = []
-            if current_client and hasattr(current_client, 'gift_info') and current_client.gift_info:
+
+            # 1. Try loading from StreamingAssets cache (710 gifts from TikTok API)
+            cache_paths = [
+                os.path.join(os.path.dirname(__file__), "Assets", "StreamingAssets", "tiktok_gifts_cache.json"),
+                os.path.join(os.path.dirname(__file__), "tiktok_gifts_cache.json")
+            ]
+            for cp in cache_paths:
+                if os.path.exists(cp):
+                    try:
+                        with open(cp, "r", encoding="utf-8") as f:
+                            gifts_data = json.load(f)
+                            break
+                    except Exception:
+                        pass
+
+            # 2. Live client gift_info fallback
+            if not gifts_data and current_client and hasattr(current_client, 'gift_info') and current_client.gift_info:
                 try:
                     for g in current_client.gift_info.get('gifts', []):
                         gifts_data.append({
@@ -126,28 +142,29 @@ class BridgeRequestHandler(BaseHTTPRequestHandler):
                 except Exception:
                     pass
 
+            # 3. Built-in Top 20 Popular TikTok Gifts with real CDN URLs
             if not gifts_data:
                 gifts_data = [
-                    {"id": "5655", "name": "Rose", "diamonds": 1, "icon_url": ""},
-                    {"id": "5827", "name": "TikTok", "diamonds": 1, "icon_url": ""},
-                    {"id": "5269", "name": "Heart", "diamonds": 1, "icon_url": ""},
-                    {"id": "5879", "name": "Finger Heart", "diamonds": 5, "icon_url": ""},
-                    {"id": "5509", "name": "Panda", "diamonds": 5, "icon_url": ""},
-                    {"id": "6003", "name": "Ice Cream", "diamonds": 1, "icon_url": ""},
-                    {"id": "5656", "name": "Doughnut", "diamonds": 30, "icon_url": ""},
-                    {"id": "5657", "name": "Cap", "diamonds": 99, "icon_url": ""},
-                    {"id": "5801", "name": "Sunglasses", "diamonds": 199, "icon_url": ""},
-                    {"id": "6050", "name": "Money Gun", "diamonds": 500, "icon_url": ""},
-                    {"id": "5587", "name": "Corgi", "diamonds": 299, "icon_url": ""},
-                    {"id": "5660", "name": "Swan", "diamonds": 699, "icon_url": ""},
-                    {"id": "6055", "name": "Whale", "diamonds": 2150, "icon_url": ""},
-                    {"id": "6056", "name": "Motorcycle", "diamonds": 2988, "icon_url": ""},
-                    {"id": "6057", "name": "Sports Car", "diamonds": 7000, "icon_url": ""},
-                    {"id": "6058", "name": "Falcon", "diamonds": 10999, "icon_url": ""},
-                    {"id": "6059", "name": "Lion", "diamonds": 29999, "icon_url": ""},
-                    {"id": "6060", "name": "TikTok Universe", "diamonds": 34999, "icon_url": ""},
-                    {"id": "5760", "name": "Fireworks", "diamonds": 1088, "icon_url": ""},
-                    {"id": "5790", "name": "Castle", "diamonds": 20000, "icon_url": ""}
+                    {"id": "5655", "name": "Rose", "diamonds": 1, "icon_url": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.png"},
+                    {"id": "5269", "name": "TikTok", "diamonds": 1, "icon_url": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/802a21ae29f9fae5abe3693de9f874bd~tplv-obj.png"},
+                    {"id": "6247", "name": "Heart", "diamonds": 1, "icon_url": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/dd300fd35a757d751301fba862a258f1~tplv-obj.png"},
+                    {"id": "5487", "name": "Finger Heart", "diamonds": 5, "icon_url": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/a4c4dc437fd3a6632aba149769491f49.png~tplv-obj.png"},
+                    {"id": "19314", "name": "Panda", "diamonds": 5, "icon_url": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/a96c32f3272df1905eb3f3d51b53308b.png~tplv-obj.png"},
+                    {"id": "15199", "name": "Ice Cream", "diamonds": 1, "icon_url": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/7f784d1ec7b26d7d8cfd05faede11d76.png~tplv-obj.png"},
+                    {"id": "5879", "name": "Doughnut", "diamonds": 30, "icon_url": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/4e7ad6bdf0a1d860c538f38026d4e812~tplv-obj.png"},
+                    {"id": "6104", "name": "Cap", "diamonds": 99, "icon_url": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/6c2ab2da19249ea570a2ece5e3377f04~tplv-obj.png"},
+                    {"id": "5509", "name": "Sunglasses", "diamonds": 199, "icon_url": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/08af67ab13a8053269bf539fd27f3873.png~tplv-obj.png"},
+                    {"id": "59450", "name": "Boxing Gloves", "diamonds": 299, "icon_url": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/3b77922c8b290b899ae70b6c0e84e437.png~tplv-obj.png"},
+                    {"id": "6267", "name": "Corgi", "diamonds": 299, "icon_url": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/148eef0884fdb12058d1c6897d1e02b9~tplv-obj.png"},
+                    {"id": "5566", "name": "Mishka Bear", "diamonds": 100, "icon_url": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/d78ed6496fd57286b42ac033acbee299.png~tplv-obj.png"},
+                    {"id": "7168", "name": "Money Gun", "diamonds": 500, "icon_url": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/e0589e95a2b41970f0f30f6202f5fce6~tplv-obj.png"},
+                    {"id": "5897", "name": "Swan", "diamonds": 699, "icon_url": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/97a26919dbf6afe262c97e22a83f4bf1~tplv-obj.png"},
+                    {"id": "6064", "name": "GG", "diamonds": 1, "icon_url": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3f02fa9594bd1495ff4e8aa5ae265eef~tplv-obj.png"},
+                    {"id": "6090", "name": "Fireworks", "diamonds": 1088, "icon_url": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/9494c8a0bc5c03521ef65368e59cc2b8~tplv-obj.png"},
+                    {"id": "6437", "name": "Garland", "diamonds": 199, "icon_url": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/bdbdd8aeb2b69c173a3ef666e63310f3~tplv-obj.png"},
+                    {"id": "6820", "name": "Whale", "diamonds": 2150, "icon_url": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/46fa70966d8e931497f5289060f9a794~tplv-obj.png"},
+                    {"id": "5765", "name": "Motorcycle", "diamonds": 2988, "icon_url": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/motor_icon_green.png~tplv-obj.png"},
+                    {"id": "13061", "name": "Sports Car", "diamonds": 4999, "icon_url": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/resource/201304005bf8f86b533b97ffa88f1abe.png~tplv-obj.png"}
                 ]
 
             self.wfile.write(json.dumps({"gifts": gifts_data}).encode('utf-8'))

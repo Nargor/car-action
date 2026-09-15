@@ -40,6 +40,58 @@ public class GiftActionModalUI : MonoBehaviour
         EnsureInitialized();
     }
 
+    void OnEnable()
+    {
+        GiftIconCache.OnIconLoaded += HandleIconLoaded;
+    }
+
+    void OnDisable()
+    {
+        GiftIconCache.OnIconLoaded -= HandleIconLoaded;
+    }
+
+    private void HandleIconLoaded(string key, Sprite sprite)
+    {
+        if (sprite == null) return;
+
+        // Update rows
+        if (workingDatabase != null && workingDatabase.actions != null)
+        {
+            for (int i = 0; i < workingDatabase.actions.Count && i < activeRowViews.Count; i++)
+            {
+                var action = workingDatabase.actions[i];
+                if (action != null && action.giftName.Trim().Equals(key, StringComparison.OrdinalIgnoreCase))
+                {
+                    var row = activeRowViews[i];
+                    if (row != null && row.activeSelf)
+                    {
+                        var giftThumb = row.transform.Find("Img_GiftThumb")?.GetComponent<Image>();
+                        if (giftThumb == null) giftThumb = row.transform.Find("Btn_Gift/Img_GiftThumb")?.GetComponent<Image>();
+                        if (giftThumb != null) giftThumb.sprite = sprite;
+                    }
+                }
+            }
+        }
+
+        // Update picker popup items
+        if (giftPickerPopup != null && giftPickerPopup.activeSelf)
+        {
+            for (int i = 0; i < activeGiftPickerViews.Count; i++)
+            {
+                var row = activeGiftPickerViews[i];
+                if (row != null && row.activeSelf)
+                {
+                    var txt = row.GetComponentInChildren<TextMeshProUGUI>();
+                    if (txt != null && txt.text.ToLower().Contains(key))
+                    {
+                        var thumb = row.transform.Find("Img_GiftThumb")?.GetComponent<Image>();
+                        if (thumb != null) thumb.sprite = sprite;
+                    }
+                }
+            }
+        }
+    }
+
     void Start()
     {
         EnsureInitialized();
