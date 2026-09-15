@@ -31,18 +31,28 @@ public class GiftActionModalUI : MonoBehaviour
     private List<GameObject> activeGiftPickerViews = new List<GameObject>();
     private List<TikTokGiftInfo> allGifts = new List<TikTokGiftInfo>();
 
+    private bool isInitialized = false;
+
     void Awake()
     {
         if (Instance == null) Instance = this;
         else if (Instance != this) { Destroy(gameObject); return; }
+        EnsureInitialized();
     }
 
     void Start()
     {
+        EnsureInitialized();
+    }
+
+    public void EnsureInitialized()
+    {
+        if (isInitialized) return;
+        isInitialized = true;
+
         if (rowTemplate != null) rowTemplate.SetActive(false);
         if (giftRowTemplate != null) giftRowTemplate.SetActive(false);
         if (giftPickerPopup != null) giftPickerPopup.SetActive(false);
-        if (modalRoot != null) modalRoot.SetActive(false);
 
         if (addActionButton != null)
         {
@@ -85,6 +95,8 @@ public class GiftActionModalUI : MonoBehaviour
 
     public void OpenModal()
     {
+        EnsureInitialized();
+
         if (modalRoot != null)
         {
             modalRoot.SetActive(true);
@@ -144,6 +156,17 @@ public class GiftActionModalUI : MonoBehaviour
         while (activeRowViews.Count < count)
         {
             GameObject newRow = Instantiate(rowTemplate, rowsContainer);
+            var le = newRow.GetComponent<LayoutElement>();
+            if (le == null) le = newRow.AddComponent<LayoutElement>();
+            le.minHeight = 52f;
+            le.preferredHeight = 52f;
+            le.flexibleWidth = 1f;
+
+            var rRect = newRow.GetComponent<RectTransform>();
+            rRect.anchorMin = new Vector2(0f, 1f);
+            rRect.anchorMax = new Vector2(1f, 1f);
+            rRect.pivot = new Vector2(0f, 1f);
+
             activeRowViews.Add(newRow);
         }
 
@@ -162,7 +185,7 @@ public class GiftActionModalUI : MonoBehaviour
                 var giftTxt = row.transform.Find("Btn_Gift/Text")?.GetComponent<TextMeshProUGUI>();
                 if (giftTxt != null)
                 {
-                    giftTxt.text = $"🎁 <b>{item.giftName}</b> <size=80%><color=#FFD700>(💎{item.diamondCost})</color></size>";
+                    giftTxt.text = $"<b>{item.giftName}</b> <size=85%><color=#FFD700>(+{item.diamondCost} Coin)</color></size>";
                 }
                 if (giftBtn != null)
                 {
@@ -235,6 +258,8 @@ public class GiftActionModalUI : MonoBehaviour
                 activeRowViews[i].SetActive(false);
             }
         }
+
+        LayoutRebuilder.ForceRebuildLayoutImmediate(rowsContainer);
     }
 
     private void UpdateActionLabel(TextMeshProUGUI txt, GiftActionType type)
@@ -243,16 +268,16 @@ public class GiftActionModalUI : MonoBehaviour
         switch (type)
         {
             case GiftActionType.SpeedBoost:
-                txt.text = "<color=#00FF88>⚡ บูสความเร็ว (Nitro)</color>";
+                txt.text = "<color=#00FF88>[NITRO] บูสความเร็ว</color>";
                 break;
             case GiftActionType.DropBomb:
-                txt.text = "<color=#FF4444>💣 วางระเบิด (Bomb)</color>";
+                txt.text = "<color=#FF4444>[BOMB] วางระเบิด</color>";
                 break;
             case GiftActionType.ShootRPG:
-                txt.text = "<color=#FFAA00>🚀 ยิง RPG ใส่รถใกล้ๆ</color>";
+                txt.text = "<color=#FFAA00>[RPG] ยิง RPG รถใกล้ๆ</color>";
                 break;
             case GiftActionType.SlowAll:
-                txt.text = "<color=#00D2FF>❄️ Slow ทุกคัน (EMP)</color>";
+                txt.text = "<color=#00D2FF>[SLOW] Slow ทุกคัน (EMP)</color>";
                 break;
         }
     }
@@ -292,7 +317,7 @@ public class GiftActionModalUI : MonoBehaviour
 
             if (statusText != null)
             {
-                statusText.text = $"<color=#00FF88>✓ บันทึก {workingDatabase.actions.Count} Actions ลงใน JSON เรียบร้อยแล้ว!</color>";
+                statusText.text = $"<color=#00FF88>[OK] บันทึก {workingDatabase.actions.Count} Actions ลงใน JSON เรียบร้อยแล้ว!</color>";
             }
         }
     }
@@ -354,6 +379,12 @@ public class GiftActionModalUI : MonoBehaviour
         while (activeGiftPickerViews.Count < count)
         {
             GameObject newRow = Instantiate(giftRowTemplate, giftListContainer);
+            var le = newRow.GetComponent<LayoutElement>();
+            if (le == null) le = newRow.AddComponent<LayoutElement>();
+            le.minHeight = 42f;
+            le.preferredHeight = 42f;
+            le.flexibleWidth = 1f;
+
             activeGiftPickerViews.Add(newRow);
         }
 
@@ -368,7 +399,7 @@ public class GiftActionModalUI : MonoBehaviour
                 var txt = row.GetComponentInChildren<TextMeshProUGUI>();
                 if (txt != null)
                 {
-                    txt.text = $"🎁 <b>{gift.name}</b>   <color=#FFD700>💎 {gift.diamonds}</color>";
+                    txt.text = $"<b>{gift.name}</b>   <color=#FFD700>+{gift.diamonds} Coin</color>";
                 }
 
                 var btn = row.GetComponent<Button>();
@@ -383,6 +414,8 @@ public class GiftActionModalUI : MonoBehaviour
                 activeGiftPickerViews[i].SetActive(false);
             }
         }
+
+        LayoutRebuilder.ForceRebuildLayoutImmediate(giftListContainer);
     }
 
     private void SelectGiftForAction(TikTokGiftInfo gift)

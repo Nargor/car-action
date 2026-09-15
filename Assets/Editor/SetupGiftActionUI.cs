@@ -112,7 +112,7 @@ public static class SetupGiftActionUI
         titleRect.offsetMax = new Vector2(-60f, -8f);
         var titleTmp = titleObj.GetComponent<TextMeshProUGUI>();
         if (defaultFont != null) titleTmp.font = defaultFont;
-        titleTmp.text = "🎁 <color=#00E5FF>TIKTOK GIFT ACTION MANAGER</color> <size=65%><color=#FFCC00>(CARSTREAM STYLE)</color></size>";
+        titleTmp.text = "<color=#00E5FF>TIKTOK GIFT ACTION MANAGER</color> <size=65%><color=#FFCC00>(CARSTREAM STYLE)</color></size>";
         titleTmp.fontSize = 22f;
         titleTmp.fontStyle = FontStyles.Bold;
         titleTmp.color = Color.white;
@@ -133,7 +133,7 @@ public static class SetupGiftActionUI
         subTmp.alignment = TextAlignmentOptions.MidlineLeft;
 
         // Close Button [X]
-        var closeBtnObj = CreateButton("Btn_Close", headerObj.transform, new Vector2(40f, 40f), new Color(0.85f, 0.2f, 0.2f, 0.9f), "✕", defaultFont, 18);
+        var closeBtnObj = CreateButton("Btn_Close", headerObj.transform, new Vector2(40f, 40f), new Color(0.85f, 0.2f, 0.2f, 0.9f), "X", defaultFont, 18);
         var closeBtnRect = closeBtnObj.GetComponent<RectTransform>();
         closeBtnRect.anchorMin = new Vector2(1f, 1f);
         closeBtnRect.anchorMax = new Vector2(1f, 1f);
@@ -166,15 +166,14 @@ public static class SetupGiftActionUI
         scrollRect.offsetMin = new Vector2(18f, 75f);
         scrollRect.offsetMax = new Vector2(-18f, -112f);
 
-        var viewportObj = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+        // Viewport with RectMask2D (No stencil Mask with alpha=0)
+        var viewportObj = new GameObject("Viewport", typeof(RectTransform), typeof(RectMask2D));
         viewportObj.transform.SetParent(scrollObj.transform, false);
         var viewRect = viewportObj.GetComponent<RectTransform>();
         viewRect.anchorMin = Vector2.zero;
         viewRect.anchorMax = Vector2.one;
         viewRect.offsetMin = Vector2.zero;
         viewRect.offsetMax = Vector2.zero;
-        viewportObj.GetComponent<Image>().color = Color.clear;
-        viewportObj.GetComponent<Mask>().showMaskGraphic = false;
 
         var contentObj = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
         contentObj.transform.SetParent(viewportObj.transform, false);
@@ -182,20 +181,21 @@ public static class SetupGiftActionUI
         contentRect.anchorMin = new Vector2(0f, 1f);
         contentRect.anchorMax = new Vector2(1f, 1f);
         contentRect.pivot = new Vector2(0.5f, 1f);
-        contentRect.anchoredPosition = Vector2.zero;
-        contentRect.sizeDelta = new Vector2(0f, 0f);
+        contentRect.offsetMin = Vector2.zero;
+        contentRect.offsetMax = Vector2.zero;
 
         var vGroup = contentObj.GetComponent<VerticalLayoutGroup>();
-        vGroup.childAlignment = TextAnchor.UpperCenter;
+        vGroup.childAlignment = TextAnchor.UpperLeft;
         vGroup.spacing = 6f;
-        vGroup.padding = new RectOffset(4, 4, 4, 4);
+        vGroup.padding = new RectOffset(8, 8, 6, 6);
         vGroup.childControlWidth = true;
-        vGroup.childControlHeight = false;
+        vGroup.childControlHeight = true;
         vGroup.childForceExpandWidth = true;
         vGroup.childForceExpandHeight = false;
 
         var fitter = contentObj.GetComponent<ContentSizeFitter>();
         fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
 
         var sRectComponent = scrollObj.GetComponent<ScrollRect>();
         sRectComponent.content = contentRect;
@@ -227,14 +227,14 @@ public static class SetupGiftActionUI
         btnAddRect.pivot = new Vector2(0f, 0.5f);
         btnAddRect.anchoredPosition = new Vector2(14f, 0f);
 
-        var btnSaveObj = CreateButton("Btn_Save", bottomObj.transform, new Vector2(170f, 44f), new Color(0f, 0.55f, 0.95f, 1f), "💾 บันทึก JSON", defaultFont, 14);
+        var btnSaveObj = CreateButton("Btn_Save", bottomObj.transform, new Vector2(170f, 44f), new Color(0f, 0.55f, 0.95f, 1f), "บันทึก JSON", defaultFont, 14);
         var btnSaveRect = btnSaveObj.GetComponent<RectTransform>();
         btnSaveRect.anchorMin = new Vector2(0f, 0.5f);
         btnSaveRect.anchorMax = new Vector2(0f, 0.5f);
         btnSaveRect.pivot = new Vector2(0f, 0.5f);
         btnSaveRect.anchoredPosition = new Vector2(204f, 0f);
 
-        var btnResetObj = CreateButton("Btn_Reset", bottomObj.transform, new Vector2(150f, 44f), new Color(0.40f, 0.45f, 0.55f, 1f), "🔄 คืนค่าเริ่มต้น", defaultFont, 13);
+        var btnResetObj = CreateButton("Btn_Reset", bottomObj.transform, new Vector2(150f, 44f), new Color(0.40f, 0.45f, 0.55f, 1f), "คืนค่าเริ่มต้น", defaultFont, 13);
         var btnResetRect = btnResetObj.GetComponent<RectTransform>();
         btnResetRect.anchorMin = new Vector2(0f, 0.5f);
         btnResetRect.anchorMax = new Vector2(0f, 0.5f);
@@ -282,13 +282,15 @@ public static class SetupGiftActionUI
             GameObject btnGiftObj;
             if (btnGiftInLobby == null)
             {
-                btnGiftObj = CreateButton("Btn_GIFT_ACTIONS", setupCard, new Vector2(400f, 44f), new Color(0.95f, 0.45f, 0.10f, 1f), "🎁 <b>ตั้งค่าของขวัญ / GIFT ACTIONS</b>", defaultFont, 14);
+                btnGiftObj = CreateButton("Btn_GIFT_ACTIONS", setupCard, new Vector2(400f, 44f), new Color(0.95f, 0.45f, 0.10f, 1f), "<b>ตั้งค่าของขวัญ (GIFT ACTIONS)</b>", defaultFont, 14);
                 var bRect = btnGiftObj.GetComponent<RectTransform>();
                 bRect.anchoredPosition = new Vector2(0f, -320f);
             }
             else
             {
                 btnGiftObj = btnGiftInLobby.gameObject;
+                var t = btnGiftObj.GetComponentInChildren<TextMeshProUGUI>();
+                if (t != null) t.text = "<b>ตั้งค่าของขวัญ (GIFT ACTIONS)</b>";
             }
 
             var menuMgr = UnityEngine.Object.FindAnyObjectByType<MenuManager>();
@@ -310,7 +312,7 @@ public static class SetupGiftActionUI
             GameObject btnGiftObj;
             if (btnGiftInJoin == null)
             {
-                btnGiftObj = CreateButton("Btn_GIFT_ACTIONS", parentTarget, new Vector2(140f, 36f), new Color(0.95f, 0.45f, 0.10f, 1f), "🎁 <b>GIFTS</b>", defaultFont, 13);
+                btnGiftObj = CreateButton("Btn_GIFT_ACTIONS", parentTarget, new Vector2(140f, 36f), new Color(0.95f, 0.45f, 0.10f, 1f), "<b>GIFTS</b>", defaultFont, 13);
                 var bRect = btnGiftObj.GetComponent<RectTransform>();
                 bRect.anchorMin = new Vector2(1f, 1f);
                 bRect.anchorMax = new Vector2(1f, 1f);
@@ -320,14 +322,47 @@ public static class SetupGiftActionUI
             else
             {
                 btnGiftObj = btnGiftInJoin.gameObject;
+                var t = btnGiftObj.GetComponentInChildren<TextMeshProUGUI>();
+                if (t != null) t.text = "<b>GIFTS</b>";
             }
 
-            var joinMgr = hudCanvasObj.GetComponentInChildren<TikTokJoinPanelManager>(true);
+            var joinMgr = UnityEngine.Object.FindAnyObjectByType<TikTokJoinPanelManager>();
             if (joinMgr != null)
             {
                 joinMgr.btnOpenGiftActions = btnGiftObj.GetComponent<Button>();
                 EditorUtility.SetDirty(joinMgr);
                 Debug.Log("[Setup] Wired TikTokJoinPanelManager.btnOpenGiftActions");
+            }
+        }
+
+        // 8. Connect HUD QuickToggle [F8]
+        var qtb = hudCanvasObj.transform.Find("HUD_Panel/QuickToggleBar");
+        if (qtb != null)
+        {
+            var existingF8 = qtb.Find("Btn_TOGGLE_F8");
+            GameObject btnF8Obj;
+            if (existingF8 == null)
+            {
+                var f7 = qtb.Find("Btn_TOGGLE_F7");
+                btnF8Obj = UnityEngine.Object.Instantiate(f7.gameObject, qtb);
+                btnF8Obj.name = "Btn_TOGGLE_F8";
+                var txt = btnF8Obj.GetComponentInChildren<TextMeshProUGUI>();
+                if (txt != null) txt.text = "<b>[F8] GIFTS</b>";
+                var img = btnF8Obj.GetComponent<Image>();
+                if (img != null) img.color = new Color(0.95f, 0.45f, 0.10f, 0.85f);
+            }
+            else
+            {
+                btnF8Obj = existingF8.gameObject;
+                var txt = btnF8Obj.GetComponentInChildren<TextMeshProUGUI>();
+                if (txt != null) txt.text = "<b>[F8] GIFTS</b>";
+            }
+
+            var joinMgr = UnityEngine.Object.FindAnyObjectByType<TikTokJoinPanelManager>();
+            if (joinMgr != null)
+            {
+                joinMgr.btnToggleF8 = btnF8Obj.GetComponent<Button>();
+                EditorUtility.SetDirty(joinMgr);
             }
         }
 
@@ -345,14 +380,22 @@ public static class SetupGiftActionUI
 
     private static GameObject CreateRowTemplate(Transform parent, TMP_FontAsset font)
     {
-        var rowObj = new GameObject("RowTemplate", typeof(RectTransform), typeof(Image));
+        var rowObj = new GameObject("RowTemplate", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
         rowObj.transform.SetParent(parent, false);
         var rRect = rowObj.GetComponent<RectTransform>();
-        rRect.sizeDelta = new Vector2(0f, 48f);
+        rRect.anchorMin = new Vector2(0f, 1f);
+        rRect.anchorMax = new Vector2(1f, 1f);
+        rRect.pivot = new Vector2(0f, 1f);
+        rRect.sizeDelta = new Vector2(0f, 52f);
         rowObj.GetComponent<Image>().color = new Color(0.14f, 0.17f, 0.25f, 0.95f);
 
+        var le = rowObj.GetComponent<LayoutElement>();
+        le.minHeight = 52f;
+        le.preferredHeight = 52f;
+        le.flexibleWidth = 1f;
+
         // 1. Btn_Gift (Select2 Trigger)
-        var btnGift = CreateButton("Btn_Gift", rowObj.transform, new Vector2(200f, 38f), new Color(0.20f, 0.24f, 0.36f, 1f), "🎁 Rose (💎1)", font, 13);
+        var btnGift = CreateButton("Btn_Gift", rowObj.transform, new Vector2(200f, 38f), new Color(0.20f, 0.24f, 0.36f, 1f), "<b>Rose</b> <size=85%><color=#FFD700>(+1 Coin)</color></size>", font, 13);
         var bgRect = btnGift.GetComponent<RectTransform>();
         bgRect.anchorMin = new Vector2(0f, 0.5f);
         bgRect.anchorMax = new Vector2(0f, 0.5f);
@@ -360,7 +403,7 @@ public static class SetupGiftActionUI
         bgRect.anchoredPosition = new Vector2(12f, 0f);
 
         // 2. Btn_Action (Cycle effect)
-        var btnAction = CreateButton("Btn_Action", rowObj.transform, new Vector2(220f, 38f), new Color(0.18f, 0.26f, 0.38f, 1f), "⚡ บูสความเร็ว (Nitro)", font, 13);
+        var btnAction = CreateButton("Btn_Action", rowObj.transform, new Vector2(220f, 38f), new Color(0.18f, 0.26f, 0.38f, 1f), "<color=#00FF88>[NITRO] บูสความเร็ว</color>", font, 13);
         var baRect = btnAction.GetComponent<RectTransform>();
         baRect.anchorMin = new Vector2(0f, 0.5f);
         baRect.anchorMax = new Vector2(0f, 0.5f);
@@ -468,12 +511,12 @@ public static class SetupGiftActionUI
         tRect.offsetMax = new Vector2(-50f, 0f);
         var tTmp = titleObj.GetComponent<TextMeshProUGUI>();
         if (font != null) tTmp.font = font;
-        tTmp.text = "🔍 <b>เลือกของขวัญ TikTok (SELECT GIFT)</b>";
+        tTmp.text = "<b>เลือกของขวัญ TikTok (SELECT GIFT)</b>";
         tTmp.fontSize = 17f;
         tTmp.color = new Color(1f, 0.85f, 0.2f, 1f);
         tTmp.alignment = TextAlignmentOptions.MidlineLeft;
 
-        var closeBtn = CreateButton("Btn_ClosePicker", hObj.transform, new Vector2(34f, 34f), new Color(0.75f, 0.22f, 0.22f, 0.9f), "✕", font, 16);
+        var closeBtn = CreateButton("Btn_ClosePicker", hObj.transform, new Vector2(34f, 34f), new Color(0.75f, 0.22f, 0.22f, 0.9f), "X", font, 16);
         var cbRect = closeBtn.GetComponent<RectTransform>();
         cbRect.anchorMin = new Vector2(1f, 1f);
         cbRect.anchorMax = new Vector2(1f, 1f);
@@ -541,15 +584,14 @@ public static class SetupGiftActionUI
         scrollRect.offsetMin = new Vector2(18f, 16f);
         scrollRect.offsetMax = new Vector2(-18f, -106f);
 
-        var viewportObj = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+        // Viewport with RectMask2D (No stencil Mask with alpha=0)
+        var viewportObj = new GameObject("Viewport", typeof(RectTransform), typeof(RectMask2D));
         viewportObj.transform.SetParent(scrollObj.transform, false);
         var viewRect = viewportObj.GetComponent<RectTransform>();
         viewRect.anchorMin = Vector2.zero;
         viewRect.anchorMax = Vector2.one;
         viewRect.offsetMin = Vector2.zero;
         viewRect.offsetMax = Vector2.zero;
-        viewportObj.GetComponent<Image>().color = Color.clear;
-        viewportObj.GetComponent<Mask>().showMaskGraphic = false;
 
         var contentObj = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
         contentObj.transform.SetParent(viewportObj.transform, false);
@@ -557,20 +599,21 @@ public static class SetupGiftActionUI
         contentRect.anchorMin = new Vector2(0f, 1f);
         contentRect.anchorMax = new Vector2(1f, 1f);
         contentRect.pivot = new Vector2(0.5f, 1f);
-        contentRect.anchoredPosition = Vector2.zero;
-        contentRect.sizeDelta = new Vector2(0f, 0f);
+        contentRect.offsetMin = Vector2.zero;
+        contentRect.offsetMax = Vector2.zero;
 
         var vGroup = contentObj.GetComponent<VerticalLayoutGroup>();
-        vGroup.childAlignment = TextAnchor.UpperCenter;
+        vGroup.childAlignment = TextAnchor.UpperLeft;
         vGroup.spacing = 4f;
         vGroup.padding = new RectOffset(4, 4, 4, 4);
         vGroup.childControlWidth = true;
-        vGroup.childControlHeight = false;
+        vGroup.childControlHeight = true;
         vGroup.childForceExpandWidth = true;
         vGroup.childForceExpandHeight = false;
 
         var fitter = contentObj.GetComponent<ContentSizeFitter>();
         fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
 
         var sRect = scrollObj.GetComponent<ScrollRect>();
         sRect.content = contentRect;
@@ -580,7 +623,12 @@ public static class SetupGiftActionUI
         sRect.movementType = ScrollRect.MovementType.Clamped;
 
         // Gift Row Template
-        var giftRowObj = CreateButton("GiftRowTemplate", contentObj.transform, new Vector2(0f, 40f), new Color(0.13f, 0.16f, 0.24f, 0.95f), "🎁 Rose   💎 1", font, 14);
+        var giftRowObj = CreateButton("GiftRowTemplate", contentObj.transform, new Vector2(0f, 42f), new Color(0.13f, 0.16f, 0.24f, 0.95f), "Rose   +1 Coin", font, 14);
+        var le = giftRowObj.AddComponent<LayoutElement>();
+        le.minHeight = 42f;
+        le.preferredHeight = 42f;
+        le.flexibleWidth = 1f;
+
         var grTmp = giftRowObj.GetComponentInChildren<TextMeshProUGUI>();
         if (grTmp != null) grTmp.alignment = TextAlignmentOptions.MidlineLeft;
         var grRect = grTmp?.GetComponent<RectTransform>();
