@@ -40,6 +40,7 @@ public class TikTokJoinPanelManager : MonoBehaviour
     public GameObject cameraToolbar;
 
     [Header("On-Screen HUD Quick Toggles")]
+    public Button btnToggleF5;
     public Button btnToggleF6;
     public Button btnToggleF7;
     public Button btnToggleF8;
@@ -91,6 +92,12 @@ public class TikTokJoinPanelManager : MonoBehaviour
             btnOpenGiftActions.onClick.AddListener(ToggleGiftActionModal);
         }
 
+        if (btnToggleF5 != null)
+        {
+            btnToggleF5.onClick.RemoveAllListeners();
+            btnToggleF5.onClick.AddListener(ToggleQuickLauncher);
+        }
+
         if (btnToggleF6 != null)
         {
             btnToggleF6.onClick.RemoveAllListeners();
@@ -130,10 +137,11 @@ public class TikTokJoinPanelManager : MonoBehaviour
     }
 
     // ==========================================
-    // HOTKEYS: F7 (Join Panel), F6 (Leaderboard & Camera Toggle), F8 (Gift Actions)
+    // HOTKEYS: F5 (Gift Quick Launcher), F6 (Leaderboard & Camera Toggle), F7 (Join Panel), F8 (Gift Actions)
     // ==========================================
     private void HandleHotkeys()
     {
+        bool f5 = false;
         bool f7 = false;
         bool f6 = false;
         bool f8 = false;
@@ -141,6 +149,7 @@ public class TikTokJoinPanelManager : MonoBehaviour
         var kb = Keyboard.current;
         if (kb != null)
         {
+            if (kb.f5Key.wasPressedThisFrame) f5 = true;
             if (kb.f7Key.wasPressedThisFrame) f7 = true;
             if (kb.f6Key.wasPressedThisFrame) f6 = true;
             if (kb.f8Key.wasPressedThisFrame) f8 = true;
@@ -148,11 +157,18 @@ public class TikTokJoinPanelManager : MonoBehaviour
 
         try
         {
+            if (!f5) f5 = Input.GetKeyDown(KeyCode.F5);
             if (!f7) f7 = Input.GetKeyDown(KeyCode.F7);
             if (!f6) f6 = Input.GetKeyDown(KeyCode.F6);
             if (!f8) f8 = Input.GetKeyDown(KeyCode.F8);
         }
         catch { }
+
+        // F5: Toggle Gift Quick Launcher Modal
+        if (f5)
+        {
+            ToggleQuickLauncher();
+        }
 
         // F7: Toggle In-Track Join Panel / Room Lobby
         if (f7)
@@ -170,6 +186,14 @@ public class TikTokJoinPanelManager : MonoBehaviour
         if (f8)
         {
             ToggleGiftActionModal();
+        }
+    }
+
+    public void ToggleQuickLauncher()
+    {
+        if (GiftQuickLauncherUI.Instance != null)
+        {
+            GiftQuickLauncherUI.Instance.ToggleModal();
         }
     }
 

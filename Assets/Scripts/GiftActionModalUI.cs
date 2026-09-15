@@ -180,12 +180,21 @@ public class GiftActionModalUI : MonoBehaviour
 
                 int index = i;
 
-                // 1. Gift Select Button
+                // 1. Gift Select Button & Thumbnail
+                var giftThumb = row.transform.Find("Img_GiftThumb")?.GetComponent<Image>();
+                if (giftThumb == null) giftThumb = row.transform.Find("Btn_Gift/Img_GiftThumb")?.GetComponent<Image>();
+                if (giftThumb != null)
+                {
+                    giftThumb.sprite = GiftIconCache.Instance.GetGiftSprite(item.giftName, item.giftIconUrl);
+                    giftThumb.color = Color.white;
+                }
+
                 var giftBtn = row.transform.Find("Btn_Gift")?.GetComponent<Button>();
                 var giftTxt = row.transform.Find("Btn_Gift/Text")?.GetComponent<TextMeshProUGUI>();
                 if (giftTxt != null)
                 {
-                    giftTxt.text = $"<b>{item.giftName}</b> <size=85%><color=#FFD700>(+{item.diamondCost} Coin)</color></size>";
+                    string th = TikTokGiftDictionary.GetThaiName(item.giftName);
+                    giftTxt.text = $"<b>{item.giftName}</b> <size=80%><color=#A5B4CB>({th})</color></size> <size=85%><color=#FFD700>+{item.diamondCost}C</color></size>";
                 }
                 if (giftBtn != null)
                 {
@@ -363,15 +372,15 @@ public class GiftActionModalUI : MonoBehaviour
     {
         if (giftListContainer == null || giftRowTemplate == null) return;
 
-        List<TikTokGiftInfo> matched = new List<TikTokGiftInfo>();
-        string q = (filter ?? "").Trim().ToLower();
-
-        foreach (var g in allGifts)
+        List<TikTokGiftInfo> matched;
+        string q = (filter ?? "").Trim();
+        if (string.IsNullOrEmpty(q))
         {
-            if (string.IsNullOrEmpty(q) || g.name.ToLower().Contains(q))
-            {
-                matched.Add(g);
-            }
+            matched = TikTokGiftDictionary.GetDefaultGifts(20);
+        }
+        else
+        {
+            matched = TikTokGiftDictionary.SearchGifts(q, 10);
         }
 
         int count = matched.Count;
@@ -396,10 +405,19 @@ public class GiftActionModalUI : MonoBehaviour
                 var row = activeGiftPickerViews[i];
                 row.SetActive(true);
 
+                // Thumbnail icon
+                var thumb = row.transform.Find("Img_GiftThumb")?.GetComponent<Image>();
+                if (thumb != null)
+                {
+                    thumb.sprite = GiftIconCache.Instance.GetGiftSprite(gift.name, gift.icon_url);
+                    thumb.color = Color.white;
+                }
+
                 var txt = row.GetComponentInChildren<TextMeshProUGUI>();
                 if (txt != null)
                 {
-                    txt.text = $"<b>{gift.name}</b>   <color=#FFD700>+{gift.diamonds} Coin</color>";
+                    string th = !string.IsNullOrEmpty(gift.thName) ? gift.thName : TikTokGiftDictionary.GetThaiName(gift.name);
+                    txt.text = $"<b>{gift.name}</b> <size=80%><color=#A5B4CB>({th})</color></size>   <color=#FFD700>+{gift.diamonds} Coin</color>";
                 }
 
                 var btn = row.GetComponent<Button>();
@@ -426,6 +444,7 @@ public class GiftActionModalUI : MonoBehaviour
             item.giftName = gift.name;
             item.diamondCost = gift.diamonds;
             item.giftId = gift.id;
+            item.giftIconUrl = gift.icon_url;
 
             RefreshActionRows();
         }

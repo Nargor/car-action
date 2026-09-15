@@ -50,6 +50,7 @@ public class TikTokGiftInfo
 {
     public string id = "";
     public string name = "";
+    public string thName = "";
     public int diamonds = 1;
     public string icon_url = "";
 }

@@ -21,14 +21,19 @@ public static class SetupGiftActionUI
 
         Undo.RegisterFullObjectHierarchyUndo(hudCanvasObj, "Setup Gift Action UI");
 
-        // 1. Add GiftActionManager to HUD_Canvas if not present
+        // 1. Ensure Managers on HUD_Canvas
         var giftMgr = hudCanvasObj.GetComponent<GiftActionManager>();
-        if (giftMgr == null)
-        {
-            giftMgr = hudCanvasObj.AddComponent<GiftActionManager>();
-            Debug.Log("[Setup] Added GiftActionManager component to HUD_Canvas");
-        }
+        if (giftMgr == null) giftMgr = hudCanvasObj.AddComponent<GiftActionManager>();
         giftMgr.apiGiftsUrl = "http://127.0.0.1:8765/api/gifts";
+
+        if (hudCanvasObj.GetComponent<LocalizationManager>() == null)
+        {
+            hudCanvasObj.AddComponent<LocalizationManager>();
+        }
+        if (hudCanvasObj.GetComponent<GiftIconCache>() == null)
+        {
+            hudCanvasObj.AddComponent<GiftIconCache>();
+        }
 
         // Find standard TMP Font
         TMP_FontAsset defaultFont = Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
@@ -38,7 +43,7 @@ public static class SetupGiftActionUI
             if (allFonts != null && allFonts.Length > 0) defaultFont = allFonts[0];
         }
 
-        // 2. Build or Find GiftAction_Modal
+        // 2. Build or Find GiftAction_Modal [F8]
         Transform modalTransform = hudCanvasObj.transform.Find("GiftAction_Modal");
         GameObject modalObj;
         if (modalTransform != null)
@@ -166,7 +171,7 @@ public static class SetupGiftActionUI
         scrollRect.offsetMin = new Vector2(18f, 75f);
         scrollRect.offsetMax = new Vector2(-18f, -112f);
 
-        // Viewport with RectMask2D (No stencil Mask with alpha=0)
+        // Viewport with RectMask2D
         var viewportObj = new GameObject("Viewport", typeof(RectTransform), typeof(RectMask2D));
         viewportObj.transform.SetParent(scrollObj.transform, false);
         var viewRect = viewportObj.GetComponent<RectTransform>();
@@ -335,10 +340,35 @@ public static class SetupGiftActionUI
             }
         }
 
-        // 8. Connect HUD QuickToggle [F8]
+        // 8. Build F5 Quick Launcher Modal
+        BuildGiftQuickLauncherModal(hudCanvasObj, defaultFont);
+
+        // 9. Connect HUD QuickToggle Bar [F5, F6, F7, F8]
         var qtb = hudCanvasObj.transform.Find("HUD_Panel/QuickToggleBar");
         if (qtb != null)
         {
+            // F5 Toggle Button
+            var existingF5 = qtb.Find("Btn_TOGGLE_F5");
+            GameObject btnF5Obj;
+            if (existingF5 == null)
+            {
+                var f7 = qtb.Find("Btn_TOGGLE_F7");
+                btnF5Obj = UnityEngine.Object.Instantiate(f7.gameObject, qtb);
+                btnF5Obj.name = "Btn_TOGGLE_F5";
+                var txt = btnF5Obj.GetComponentInChildren<TextMeshProUGUI>();
+                if (txt != null) txt.text = "<b>[F5] ACTIONS</b>";
+                var img = btnF5Obj.GetComponent<Image>();
+                if (img != null) img.color = new Color(0.85f, 0.15f, 0.65f, 0.90f);
+            }
+            else
+            {
+                btnF5Obj = existingF5.gameObject;
+                var txt = btnF5Obj.GetComponentInChildren<TextMeshProUGUI>();
+                if (txt != null) txt.text = "<b>[F5] ACTIONS</b>";
+            }
+            btnF5Obj.transform.SetSiblingIndex(0);
+
+            // F8 Toggle Button
             var existingF8 = qtb.Find("Btn_TOGGLE_F8");
             GameObject btnF8Obj;
             if (existingF8 == null)
@@ -347,7 +377,7 @@ public static class SetupGiftActionUI
                 btnF8Obj = UnityEngine.Object.Instantiate(f7.gameObject, qtb);
                 btnF8Obj.name = "Btn_TOGGLE_F8";
                 var txt = btnF8Obj.GetComponentInChildren<TextMeshProUGUI>();
-                if (txt != null) txt.text = "<b>[F8] GIFTS</b>";
+                if (txt != null) txt.text = "<b>[F8] SETTINGS</b>";
                 var img = btnF8Obj.GetComponent<Image>();
                 if (img != null) img.color = new Color(0.95f, 0.45f, 0.10f, 0.85f);
             }
@@ -355,13 +385,20 @@ public static class SetupGiftActionUI
             {
                 btnF8Obj = existingF8.gameObject;
                 var txt = btnF8Obj.GetComponentInChildren<TextMeshProUGUI>();
-                if (txt != null) txt.text = "<b>[F8] GIFTS</b>";
+                if (txt != null) txt.text = "<b>[F8] SETTINGS</b>";
             }
 
             var joinMgr = UnityEngine.Object.FindAnyObjectByType<TikTokJoinPanelManager>();
             if (joinMgr != null)
             {
+                joinMgr.btnToggleF5 = btnF5Obj.GetComponent<Button>();
                 joinMgr.btnToggleF8 = btnF8Obj.GetComponent<Button>();
+
+                var f6Obj = qtb.Find("Btn_TOGGLE_F6");
+                if (f6Obj != null) joinMgr.btnToggleF6 = f6Obj.GetComponent<Button>();
+                var f7Obj = qtb.Find("Btn_TOGGLE_F7");
+                if (f7Obj != null) joinMgr.btnToggleF7 = f7Obj.GetComponent<Button>();
+
                 EditorUtility.SetDirty(joinMgr);
             }
         }
@@ -375,7 +412,306 @@ public static class SetupGiftActionUI
         EditorSceneManager.MarkSceneDirty(hudCanvasObj.scene);
         EditorSceneManager.SaveScene(hudCanvasObj.scene);
 
-        Debug.Log("✅ [SetupGiftActionUI] Successfully built and wired Gift Action Manager Modal and Select2 Gift Picker!");
+        Debug.Log("✅ [SetupGiftActionUI] Successfully built and wired F8 Settings Modal and F5 Quick Launcher Modal!");
+    }
+
+    private static void BuildGiftQuickLauncherModal(GameObject hudCanvasObj, TMP_FontAsset defaultFont)
+    {
+        Transform modalTransform = hudCanvasObj.transform.Find("GiftQuickLauncher_Modal");
+        GameObject modalObj;
+        if (modalTransform != null)
+        {
+            modalObj = modalTransform.gameObject;
+        }
+        else
+        {
+            modalObj = new GameObject("GiftQuickLauncher_Modal", typeof(RectTransform));
+            modalObj.transform.SetParent(hudCanvasObj.transform, false);
+        }
+
+        var modalRect = modalObj.GetComponent<RectTransform>();
+        modalRect.anchorMin = Vector2.zero;
+        modalRect.anchorMax = Vector2.one;
+        modalRect.offsetMin = Vector2.zero;
+        modalRect.offsetMax = Vector2.zero;
+
+        var launcherUI = modalObj.GetComponent<GiftQuickLauncherUI>();
+        if (launcherUI == null) launcherUI = modalObj.AddComponent<GiftQuickLauncherUI>();
+
+        // Clear existing children to rebuild cleanly
+        while (modalObj.transform.childCount > 0)
+        {
+            GameObject.DestroyImmediate(modalObj.transform.GetChild(0).gameObject);
+        }
+
+        // 1. Modal Root (Backdrop)
+        var modalRootObj = new GameObject("ModalRoot", typeof(RectTransform), typeof(Image));
+        modalRootObj.transform.SetParent(modalObj.transform, false);
+        var rootRect = modalRootObj.GetComponent<RectTransform>();
+        rootRect.anchorMin = Vector2.zero;
+        rootRect.anchorMax = Vector2.one;
+        rootRect.offsetMin = Vector2.zero;
+        rootRect.offsetMax = Vector2.zero;
+        var rootImg = modalRootObj.GetComponent<Image>();
+        rootImg.color = new Color(0f, 0f, 0f, 0.78f);
+        rootImg.raycastTarget = true;
+
+        // 2. Main Card
+        var cardObj = new GameObject("Card", typeof(RectTransform), typeof(Image), typeof(Outline));
+        cardObj.transform.SetParent(modalRootObj.transform, false);
+        var cardRect = cardObj.GetComponent<RectTransform>();
+        cardRect.anchorMin = new Vector2(0.5f, 0.5f);
+        cardRect.anchorMax = new Vector2(0.5f, 0.5f);
+        cardRect.sizeDelta = new Vector2(860f, 540f);
+        cardRect.anchoredPosition = Vector2.zero;
+
+        var cardImg = cardObj.GetComponent<Image>();
+        cardImg.color = new Color(0.08f, 0.10f, 0.16f, 0.98f);
+        var cardOutline = cardObj.GetComponent<Outline>();
+        cardOutline.effectColor = new Color(1f, 0.25f, 0.75f, 0.65f);
+        cardOutline.effectDistance = new Vector2(2f, -2f);
+
+        // Header
+        var headerObj = new GameObject("Header", typeof(RectTransform));
+        headerObj.transform.SetParent(cardObj.transform, false);
+        var headerRect = headerObj.GetComponent<RectTransform>();
+        headerRect.anchorMin = new Vector2(0f, 1f);
+        headerRect.anchorMax = new Vector2(1f, 1f);
+        headerRect.pivot = new Vector2(0.5f, 1f);
+        headerRect.sizeDelta = new Vector2(0f, 70f);
+        headerRect.anchoredPosition = Vector2.zero;
+
+        var titleObj = new GameObject("TitleText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        titleObj.transform.SetParent(headerObj.transform, false);
+        var titleRect = titleObj.GetComponent<RectTransform>();
+        titleRect.anchorMin = new Vector2(0f, 0.5f);
+        titleRect.anchorMax = new Vector2(1f, 1f);
+        titleRect.offsetMin = new Vector2(24f, 0f);
+        titleRect.offsetMax = new Vector2(-60f, -8f);
+        var titleTmp = titleObj.GetComponent<TextMeshProUGUI>();
+        if (defaultFont != null) titleTmp.font = defaultFont;
+        titleTmp.text = "<color=#00E5FF><b>TIKTOK GIFT QUICK LAUNCHER</b></color> <size=65%><color=#FFD700>[F5]</color></size>";
+        titleTmp.fontSize = 22f;
+        titleTmp.fontStyle = FontStyles.Bold;
+        titleTmp.color = Color.white;
+        titleTmp.alignment = TextAlignmentOptions.MidlineLeft;
+
+        var subObj = new GameObject("SubtitleText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        subObj.transform.SetParent(headerObj.transform, false);
+        var subRect = subObj.GetComponent<RectTransform>();
+        subRect.anchorMin = new Vector2(0f, 0f);
+        subRect.anchorMax = new Vector2(1f, 0.5f);
+        subRect.offsetMin = new Vector2(24f, 6f);
+        subRect.offsetMax = new Vector2(-60f, 0f);
+        var subTmp = subObj.GetComponent<TextMeshProUGUI>();
+        if (defaultFont != null) subTmp.font = defaultFont;
+        subTmp.text = "คลิกของขวัญเพื่อรัน Action ในเกมทันที (สำหรับสตรีมเมอร์ & ทดสอบระบบการส่งของขวัญ)";
+        subTmp.fontSize = 13f;
+        subTmp.color = new Color(0.65f, 0.72f, 0.85f, 1f);
+        subTmp.alignment = TextAlignmentOptions.MidlineLeft;
+
+        // Close Button [X]
+        var closeBtnObj = CreateButton("Btn_Close", headerObj.transform, new Vector2(40f, 40f), new Color(0.85f, 0.2f, 0.2f, 0.9f), "X", defaultFont, 18);
+        var closeBtnRect = closeBtnObj.GetComponent<RectTransform>();
+        closeBtnRect.anchorMin = new Vector2(1f, 1f);
+        closeBtnRect.anchorMax = new Vector2(1f, 1f);
+        closeBtnRect.pivot = new Vector2(1f, 1f);
+        closeBtnRect.anchoredPosition = new Vector2(-16f, -14f);
+
+        // Scroll Area for Cards
+        var scrollObj = new GameObject("ScrollArea", typeof(RectTransform), typeof(ScrollRect));
+        scrollObj.transform.SetParent(cardObj.transform, false);
+        var scrollRect = scrollObj.GetComponent<RectTransform>();
+        scrollRect.anchorMin = new Vector2(0f, 0f);
+        scrollRect.anchorMax = new Vector2(1f, 1f);
+        scrollRect.offsetMin = new Vector2(18f, 64f);
+        scrollRect.offsetMax = new Vector2(-18f, -76f);
+
+        var viewportObj = new GameObject("Viewport", typeof(RectTransform), typeof(RectMask2D));
+        viewportObj.transform.SetParent(scrollObj.transform, false);
+        var viewRect = viewportObj.GetComponent<RectTransform>();
+        viewRect.anchorMin = Vector2.zero;
+        viewRect.anchorMax = Vector2.one;
+        viewRect.offsetMin = Vector2.zero;
+        viewRect.offsetMax = Vector2.zero;
+
+        var contentObj = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+        contentObj.transform.SetParent(viewportObj.transform, false);
+        var contentRect = contentObj.GetComponent<RectTransform>();
+        contentRect.anchorMin = new Vector2(0f, 1f);
+        contentRect.anchorMax = new Vector2(1f, 1f);
+        contentRect.pivot = new Vector2(0.5f, 1f);
+        contentRect.offsetMin = Vector2.zero;
+        contentRect.offsetMax = Vector2.zero;
+
+        var vGroup = contentObj.GetComponent<VerticalLayoutGroup>();
+        vGroup.childAlignment = TextAnchor.UpperLeft;
+        vGroup.spacing = 6f;
+        vGroup.padding = new RectOffset(6, 6, 6, 6);
+        vGroup.childControlWidth = true;
+        vGroup.childControlHeight = true;
+        vGroup.childForceExpandWidth = true;
+        vGroup.childForceExpandHeight = false;
+
+        var fitter = contentObj.GetComponent<ContentSizeFitter>();
+        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+
+        var sRectComponent = scrollObj.GetComponent<ScrollRect>();
+        sRectComponent.content = contentRect;
+        sRectComponent.viewport = viewRect;
+        sRectComponent.horizontal = false;
+        sRectComponent.vertical = true;
+        sRectComponent.movementType = ScrollRect.MovementType.Clamped;
+
+        // Card Template
+        var cardTemplateObj = new GameObject("CardTemplate", typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+        cardTemplateObj.transform.SetParent(contentObj.transform, false);
+        var ctRect = cardTemplateObj.GetComponent<RectTransform>();
+        ctRect.sizeDelta = new Vector2(0f, 52f);
+        var ctImg = cardTemplateObj.GetComponent<Image>();
+        ctImg.color = new Color(0.13f, 0.16f, 0.25f, 0.95f);
+
+        var btn = cardTemplateObj.GetComponent<Button>();
+        var colors = btn.colors;
+        colors.normalColor = new Color(0.13f, 0.16f, 0.25f, 0.95f);
+        colors.highlightedColor = new Color(0.20f, 0.26f, 0.40f, 1f);
+        colors.pressedColor = new Color(0.10f, 0.12f, 0.20f, 1f);
+        btn.colors = colors;
+
+        var le = cardTemplateObj.GetComponent<LayoutElement>();
+        le.minHeight = 52f;
+        le.preferredHeight = 52f;
+        le.flexibleWidth = 1f;
+
+        // Card Thumbnail Icon
+        var iconObj = new GameObject("Img_Icon", typeof(RectTransform), typeof(Image));
+        iconObj.transform.SetParent(cardTemplateObj.transform, false);
+        var ir = iconObj.GetComponent<RectTransform>();
+        ir.anchorMin = new Vector2(0f, 0.5f);
+        ir.anchorMax = new Vector2(0f, 0.5f);
+        ir.pivot = new Vector2(0f, 0.5f);
+        ir.anchoredPosition = new Vector2(10f, 0f);
+        ir.sizeDelta = new Vector2(36f, 36f);
+
+        // Card Name
+        var nameObj = new GameObject("Txt_Name", typeof(RectTransform), typeof(TextMeshProUGUI));
+        nameObj.transform.SetParent(cardTemplateObj.transform, false);
+        var nr = nameObj.GetComponent<RectTransform>();
+        nr.anchorMin = new Vector2(0f, 0.5f);
+        nr.anchorMax = new Vector2(0f, 0.5f);
+        nr.pivot = new Vector2(0f, 0.5f);
+        nr.anchoredPosition = new Vector2(56f, 0f);
+        nr.sizeDelta = new Vector2(230f, 36f);
+        var nt = nameObj.GetComponent<TextMeshProUGUI>();
+        if (defaultFont != null) nt.font = defaultFont;
+        nt.fontSize = 15f;
+        nt.fontStyle = FontStyles.Bold;
+        nt.alignment = TextAlignmentOptions.MidlineLeft;
+        nt.color = Color.white;
+        nt.text = "<b>Rose</b> (กุหลาบ)";
+
+        // Card Coins
+        var coinObj = new GameObject("Txt_Coins", typeof(RectTransform), typeof(TextMeshProUGUI));
+        coinObj.transform.SetParent(cardTemplateObj.transform, false);
+        var cr = coinObj.GetComponent<RectTransform>();
+        cr.anchorMin = new Vector2(0f, 0.5f);
+        cr.anchorMax = new Vector2(0f, 0.5f);
+        cr.pivot = new Vector2(0f, 0.5f);
+        cr.anchoredPosition = new Vector2(296f, 0f);
+        cr.sizeDelta = new Vector2(110f, 36f);
+        var ctText = coinObj.GetComponent<TextMeshProUGUI>();
+        if (defaultFont != null) ctText.font = defaultFont;
+        ctText.fontSize = 13f;
+        ctText.alignment = TextAlignmentOptions.MidlineLeft;
+        ctText.color = new Color(1f, 0.85f, 0.2f);
+        ctText.text = "+1 Coin";
+
+        // Badge
+        var badgeObj = new GameObject("Badge", typeof(RectTransform), typeof(Image));
+        badgeObj.transform.SetParent(cardTemplateObj.transform, false);
+        var br = badgeObj.GetComponent<RectTransform>();
+        br.anchorMin = new Vector2(0f, 0.5f);
+        br.anchorMax = new Vector2(0f, 0.5f);
+        br.pivot = new Vector2(0f, 0.5f);
+        br.anchoredPosition = new Vector2(416f, 0f);
+        br.sizeDelta = new Vector2(240f, 34f);
+        badgeObj.GetComponent<Image>().color = new Color(0f, 0.35f, 0.20f, 0.85f);
+
+        var actionTxtObj = new GameObject("Txt_Action", typeof(RectTransform), typeof(TextMeshProUGUI));
+        actionTxtObj.transform.SetParent(badgeObj.transform, false);
+        var atr = actionTxtObj.GetComponent<RectTransform>();
+        atr.anchorMin = Vector2.zero;
+        atr.anchorMax = Vector2.one;
+        atr.offsetMin = Vector2.zero;
+        atr.offsetMax = Vector2.zero;
+        var actTmp = actionTxtObj.GetComponent<TextMeshProUGUI>();
+        if (defaultFont != null) actTmp.font = defaultFont;
+        actTmp.text = "<b>[NITRO] บูสความเร็ว 4.0s</b>";
+        actTmp.fontSize = 13f;
+        actTmp.alignment = TextAlignmentOptions.Center;
+        actTmp.color = new Color(0f, 1f, 0.55f);
+
+        // Click hint
+        var hintObj = new GameObject("Txt_Hint", typeof(RectTransform), typeof(TextMeshProUGUI));
+        hintObj.transform.SetParent(cardTemplateObj.transform, false);
+        var hr = hintObj.GetComponent<RectTransform>();
+        hr.anchorMin = new Vector2(1f, 0.5f);
+        hr.anchorMax = new Vector2(1f, 0.5f);
+        hr.pivot = new Vector2(1f, 0.5f);
+        hr.anchoredPosition = new Vector2(-16f, 0f);
+        hr.sizeDelta = new Vector2(120f, 34f);
+        var hintTmp = hintObj.GetComponent<TextMeshProUGUI>();
+        if (defaultFont != null) hintTmp.font = defaultFont;
+        hintTmp.text = "<color=#6B7B99>[คลิกเพื่อรัน]</color>";
+        hintTmp.fontSize = 12f;
+        hintTmp.alignment = TextAlignmentOptions.MidlineRight;
+
+        cardTemplateObj.SetActive(false);
+
+        // Bottom Bar
+        var bottomObj = new GameObject("BottomBar", typeof(RectTransform), typeof(Image));
+        bottomObj.transform.SetParent(cardObj.transform, false);
+        var bottomRect = bottomObj.GetComponent<RectTransform>();
+        bottomRect.anchorMin = new Vector2(0f, 0f);
+        bottomRect.anchorMax = new Vector2(1f, 0f);
+        bottomRect.pivot = new Vector2(0.5f, 0f);
+        bottomRect.sizeDelta = new Vector2(-36f, 56f);
+        bottomRect.anchoredPosition = new Vector2(0f, 6f);
+        bottomObj.GetComponent<Image>().color = new Color(0.10f, 0.12f, 0.18f, 0.95f);
+
+        var statusTextObj = new GameObject("StatusText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        statusTextObj.transform.SetParent(bottomObj.transform, false);
+        var statusRect = statusTextObj.GetComponent<RectTransform>();
+        statusRect.anchorMin = new Vector2(0f, 0.5f);
+        statusRect.anchorMax = new Vector2(1f, 0.5f);
+        statusRect.offsetMin = new Vector2(20f, -22f);
+        statusRect.offsetMax = new Vector2(-220f, 22f);
+        var statusTmp = statusTextObj.GetComponent<TextMeshProUGUI>();
+        if (defaultFont != null) statusTmp.font = defaultFont;
+        statusTmp.text = "<color=#00FF88>⚡ คลิกที่ของขวัญด้านบนเพื่อรัน Action ในเกมทันที</color>";
+        statusTmp.fontSize = 13f;
+        statusTmp.alignment = TextAlignmentOptions.MidlineLeft;
+
+        var btnF8Obj = CreateButton("Btn_GoSettings", bottomObj.transform, new Vector2(200f, 38f), new Color(0.95f, 0.45f, 0.10f, 1f), "<b>[F8] ตั้งค่าของขวัญ</b>", defaultFont, 13);
+        var bf8Rect = btnF8Obj.GetComponent<RectTransform>();
+        bf8Rect.anchorMin = new Vector2(1f, 0.5f);
+        bf8Rect.anchorMax = new Vector2(1f, 0.5f);
+        bf8Rect.pivot = new Vector2(1f, 0.5f);
+        bf8Rect.anchoredPosition = new Vector2(-12f, 0f);
+
+        // Wire Launcher UI references
+        launcherUI.modalRoot = modalRootObj;
+        launcherUI.cardsContainer = contentRect;
+        launcherUI.cardTemplate = cardTemplateObj;
+        launcherUI.closeButton = closeBtnObj.GetComponent<Button>();
+        launcherUI.titleText = titleTmp;
+        launcherUI.statusText = statusTmp;
+
+        modalRootObj.SetActive(false);
+
+        EditorUtility.SetDirty(launcherUI);
+        EditorUtility.SetDirty(modalObj);
     }
 
     private static GameObject CreateRowTemplate(Transform parent, TMP_FontAsset font)
@@ -394,15 +730,25 @@ public static class SetupGiftActionUI
         le.preferredHeight = 52f;
         le.flexibleWidth = 1f;
 
-        // 1. Btn_Gift (Select2 Trigger)
-        var btnGift = CreateButton("Btn_Gift", rowObj.transform, new Vector2(200f, 38f), new Color(0.20f, 0.24f, 0.36f, 1f), "<b>Rose</b> <size=85%><color=#FFD700>(+1 Coin)</color></size>", font, 13);
+        // 1. Img_GiftThumb (Thumbnail)
+        var thumbObj = new GameObject("Img_GiftThumb", typeof(RectTransform), typeof(Image));
+        thumbObj.transform.SetParent(rowObj.transform, false);
+        var thumbRect = thumbObj.GetComponent<RectTransform>();
+        thumbRect.anchorMin = new Vector2(0f, 0.5f);
+        thumbRect.anchorMax = new Vector2(0f, 0.5f);
+        thumbRect.pivot = new Vector2(0f, 0.5f);
+        thumbRect.anchoredPosition = new Vector2(10f, 0f);
+        thumbRect.sizeDelta = new Vector2(36f, 36f);
+
+        // 2. Btn_Gift (Select2 Trigger)
+        var btnGift = CreateButton("Btn_Gift", rowObj.transform, new Vector2(165f, 38f), new Color(0.20f, 0.24f, 0.36f, 1f), "<b>Rose</b> <size=85%><color=#FFD700>(+1 Coin)</color></size>", font, 13);
         var bgRect = btnGift.GetComponent<RectTransform>();
         bgRect.anchorMin = new Vector2(0f, 0.5f);
         bgRect.anchorMax = new Vector2(0f, 0.5f);
         bgRect.pivot = new Vector2(0f, 0.5f);
-        bgRect.anchoredPosition = new Vector2(12f, 0f);
+        bgRect.anchoredPosition = new Vector2(52f, 0f);
 
-        // 2. Btn_Action (Cycle effect)
+        // 3. Btn_Action (Cycle effect)
         var btnAction = CreateButton("Btn_Action", rowObj.transform, new Vector2(220f, 38f), new Color(0.18f, 0.26f, 0.38f, 1f), "<color=#00FF88>[NITRO] บูสความเร็ว</color>", font, 13);
         var baRect = btnAction.GetComponent<RectTransform>();
         baRect.anchorMin = new Vector2(0f, 0.5f);
@@ -410,7 +756,7 @@ public static class SetupGiftActionUI
         baRect.pivot = new Vector2(0f, 0.5f);
         baRect.anchoredPosition = new Vector2(224f, 0f);
 
-        // 3. Duration Container
+        // 4. Duration Container
         var durObj = new GameObject("Duration", typeof(RectTransform));
         durObj.transform.SetParent(rowObj.transform, false);
         var durRect = durObj.GetComponent<RectTransform>();
@@ -438,7 +784,7 @@ public static class SetupGiftActionUI
         var btnPlus = CreateButton("Btn_Plus", durObj.transform, new Vector2(32f, 32f), new Color(0.25f, 0.30f, 0.42f, 1f), "+", font, 16);
         btnPlus.GetComponent<RectTransform>().anchoredPosition = new Vector2(48f, 0f);
 
-        // 4. Toggle_Enabled
+        // 5. Toggle_Enabled
         var toggleObj = new GameObject("Toggle_Enabled", typeof(RectTransform), typeof(Toggle));
         toggleObj.transform.SetParent(rowObj.transform, false);
         var tRect = toggleObj.GetComponent<RectTransform>();
@@ -466,7 +812,7 @@ public static class SetupGiftActionUI
         toggle.graphic = checkImg;
         toggle.isOn = true;
 
-        // 5. Btn_Delete
+        // 6. Btn_Delete
         var btnDel = CreateButton("Btn_Delete", rowObj.transform, new Vector2(50f, 34f), new Color(0.75f, 0.22f, 0.22f, 0.9f), "ลบ", font, 13);
         var bdRect = btnDel.GetComponent<RectTransform>();
         bdRect.anchorMin = new Vector2(0f, 0.5f);
@@ -564,7 +910,7 @@ public static class SetupGiftActionUI
         phRect.offsetMax = new Vector2(-14f, -2f);
         var phTmp = phObj.GetComponent<TextMeshProUGUI>();
         if (font != null) phTmp.font = font;
-        phTmp.text = "พิมพ์ค้นหา เช่น Rose, Cap, Lion, Gun, Heart...";
+        phTmp.text = "พิมพ์ค้นหา เช่น กุหลาบ, หมวก, ปืน, สิงโต, Rose...";
         phTmp.fontSize = 14f;
         phTmp.fontStyle = FontStyles.Italic;
         phTmp.color = new Color(0.55f, 0.60f, 0.72f, 0.9f);
@@ -584,7 +930,7 @@ public static class SetupGiftActionUI
         scrollRect.offsetMin = new Vector2(18f, 16f);
         scrollRect.offsetMax = new Vector2(-18f, -106f);
 
-        // Viewport with RectMask2D (No stencil Mask with alpha=0)
+        // Viewport with RectMask2D
         var viewportObj = new GameObject("Viewport", typeof(RectTransform), typeof(RectMask2D));
         viewportObj.transform.SetParent(scrollObj.transform, false);
         var viewRect = viewportObj.GetComponent<RectTransform>();
@@ -623,18 +969,28 @@ public static class SetupGiftActionUI
         sRect.movementType = ScrollRect.MovementType.Clamped;
 
         // Gift Row Template
-        var giftRowObj = CreateButton("GiftRowTemplate", contentObj.transform, new Vector2(0f, 42f), new Color(0.13f, 0.16f, 0.24f, 0.95f), "Rose   +1 Coin", font, 14);
+        var giftRowObj = CreateButton("GiftRowTemplate", contentObj.transform, new Vector2(0f, 44f), new Color(0.13f, 0.16f, 0.24f, 0.95f), "Rose   +1 Coin", font, 14);
         var le = giftRowObj.AddComponent<LayoutElement>();
-        le.minHeight = 42f;
-        le.preferredHeight = 42f;
+        le.minHeight = 44f;
+        le.preferredHeight = 44f;
         le.flexibleWidth = 1f;
+
+        // Add Thumbnail Image inside GiftRowTemplate
+        var thumbObj = new GameObject("Img_GiftThumb", typeof(RectTransform), typeof(Image));
+        thumbObj.transform.SetParent(giftRowObj.transform, false);
+        var gThumbRect = thumbObj.GetComponent<RectTransform>();
+        gThumbRect.anchorMin = new Vector2(0f, 0.5f);
+        gThumbRect.anchorMax = new Vector2(0f, 0.5f);
+        gThumbRect.pivot = new Vector2(0f, 0.5f);
+        gThumbRect.anchoredPosition = new Vector2(8f, 0f);
+        gThumbRect.sizeDelta = new Vector2(30f, 30f);
 
         var grTmp = giftRowObj.GetComponentInChildren<TextMeshProUGUI>();
         if (grTmp != null) grTmp.alignment = TextAlignmentOptions.MidlineLeft;
         var grRect = grTmp?.GetComponent<RectTransform>();
         if (grRect != null)
         {
-            grRect.offsetMin = new Vector2(16f, 0f);
+            grRect.offsetMin = new Vector2(46f, 0f);
             grRect.offsetMax = new Vector2(-16f, 0f);
         }
         giftRowObj.SetActive(false);

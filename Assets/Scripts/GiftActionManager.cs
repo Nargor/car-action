@@ -154,9 +154,19 @@ public class GiftActionManager : MonoBehaviour
         if (senderCar == null)
         {
             var pObj = GameObject.Find("PlayerCar");
-            if (pObj != null && username.Equals("player", StringComparison.OrdinalIgnoreCase))
+            if (pObj != null)
             {
                 senderCar = pObj;
+            }
+            else
+            {
+                var pCtrl = UnityEngine.Object.FindAnyObjectByType<CarController>();
+                if (pCtrl != null) senderCar = pCtrl.gameObject;
+                else
+                {
+                    var ai = UnityEngine.Object.FindAnyObjectByType<AICarController>();
+                    if (ai != null) senderCar = ai.gameObject;
+                }
             }
         }
 
@@ -315,36 +325,11 @@ public class GiftActionManager : MonoBehaviour
     // ==========================================
     public static List<TikTokGiftInfo> GenerateFallbackGiftCatalog()
     {
-        return new List<TikTokGiftInfo>
+        var list = new List<TikTokGiftInfo>();
+        foreach (var entry in TikTokGiftDictionary.Catalog)
         {
-            new TikTokGiftInfo { id = "5655", name = "Rose", diamonds = 1 },
-            new TikTokGiftInfo { id = "5827", name = "TikTok", diamonds = 1 },
-            new TikTokGiftInfo { id = "5269", name = "Heart", diamonds = 1 },
-            new TikTokGiftInfo { id = "5879", name = "Finger Heart", diamonds = 5 },
-            new TikTokGiftInfo { id = "5509", name = "Panda", diamonds = 5 },
-            new TikTokGiftInfo { id = "6003", name = "Ice Cream", diamonds = 1 },
-            new TikTokGiftInfo { id = "5656", name = "Doughnut", diamonds = 30 },
-            new TikTokGiftInfo { id = "5657", name = "Cap", diamonds = 99 },
-            new TikTokGiftInfo { id = "5801", name = "Sunglasses", diamonds = 199 },
-            new TikTokGiftInfo { id = "6050", name = "Money Gun", diamonds = 500 },
-            new TikTokGiftInfo { id = "5587", name = "Corgi", diamonds = 299 },
-            new TikTokGiftInfo { id = "5660", name = "Swan", diamonds = 699 },
-            new TikTokGiftInfo { id = "6055", name = "Whale", diamonds = 2150 },
-            new TikTokGiftInfo { id = "6056", name = "Motorcycle", diamonds = 2988 },
-            new TikTokGiftInfo { id = "6057", name = "Sports Car", diamonds = 7000 },
-            new TikTokGiftInfo { id = "6058", name = "Falcon", diamonds = 10999 },
-            new TikTokGiftInfo { id = "6059", name = "Lion", diamonds = 29999 },
-            new TikTokGiftInfo { id = "6060", name = "TikTok Universe", diamonds = 34999 },
-            new TikTokGiftInfo { id = "5760", name = "Fireworks", diamonds = 1088 },
-            new TikTokGiftInfo { id = "5790", name = "Castle", diamonds = 20000 },
-            new TikTokGiftInfo { id = "5430", name = "Planet", diamonds = 15000 },
-            new TikTokGiftInfo { id = "5300", name = "Crown", diamonds = 9999 },
-            new TikTokGiftInfo { id = "5100", name = "Gold Mine", diamonds = 1000 },
-            new TikTokGiftInfo { id = "5200", name = "Boxing Gloves", diamonds = 299 },
-            new TikTokGiftInfo { id = "5210", name = "Hand Hearts", diamonds = 100 },
-            new TikTokGiftInfo { id = "5220", name = "Confetti", diamonds = 100 },
-            new TikTokGiftInfo { id = "5230", name = "Garland", diamonds = 1500 },
-            new TikTokGiftInfo { id = "5240", name = "Diamond Ring", diamonds = 300 }
-        };
+            list.Add(entry.ToGiftInfo());
+        }
+        return list;
     }
 }
