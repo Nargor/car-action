@@ -32,16 +32,26 @@ public class TikTokJoinPanelManager : MonoBehaviour
     public Button addBotButton;
     public Button startRaceButton;
     public Button closeButton;
+    public Button leaveToMainMenuButton;
 
     [Header("Hotkey References")]
     public GameObject leaderboardWindow;
     public GameObject cameraToolbar;
+
+    [Header("On-Screen HUD Quick Toggles")]
+    public Button btnToggleF6;
+    public Button btnToggleF7;
 
     private List<GameObject> activeRowObjects = new List<GameObject>();
 
     void Awake()
     {
         if (_instance == null) _instance = this;
+        else if (_instance != this && transform.parent == null)
+        {
+            // Prefer instance on HUD_Canvas
+            _instance = this;
+        }
     }
 
     void Start()
@@ -65,6 +75,24 @@ public class TikTokJoinPanelManager : MonoBehaviour
         {
             closeButton.onClick.RemoveAllListeners();
             closeButton.onClick.AddListener(() => SetJoinPanelVisible(false));
+        }
+
+        if (leaveToMainMenuButton != null)
+        {
+            leaveToMainMenuButton.onClick.RemoveAllListeners();
+            leaveToMainMenuButton.onClick.AddListener(OnLeaveToMainMenuClicked);
+        }
+
+        if (btnToggleF6 != null)
+        {
+            btnToggleF6.onClick.RemoveAllListeners();
+            btnToggleF6.onClick.AddListener(ToggleLeaderboardAndCamera);
+        }
+
+        if (btnToggleF7 != null)
+        {
+            btnToggleF7.onClick.RemoveAllListeners();
+            btnToggleF7.onClick.AddListener(ToggleJoinPanel);
         }
 
         // Hook into TikTokLiveManager event
@@ -109,22 +137,32 @@ public class TikTokJoinPanelManager : MonoBehaviour
         }
         catch { }
 
-        // F7: Toggle In-Track Join Panel
-        if (f7 && joinPanel != null)
+        // F7: Toggle In-Track Join Panel / Room Lobby
+        if (f7)
         {
-            // Only toggle if in TikTok Live mode
-            if (RaceManager.Instance != null && RaceManager.Instance.selectedGameMode == RaceManager.GameMode.TikTokLive)
-            {
-                SetJoinPanelVisible(!joinPanel.activeSelf);
-            }
+            ToggleJoinPanel();
         }
 
         // F6: Toggle Leaderboard + Camera Toolbar
         if (f6)
         {
-            bool isCurrentlyOpen = (leaderboardWindow != null && leaderboardWindow.activeSelf);
-            SetLeaderboardAndCameraVisible(!isCurrentlyOpen);
+            ToggleLeaderboardAndCamera();
         }
+    }
+
+    public void ToggleJoinPanel()
+    {
+        if (joinPanel != null)
+        {
+            SetJoinPanelVisible(!joinPanel.activeSelf);
+        }
+    }
+
+    public void ToggleLeaderboardAndCamera()
+    {
+        bool isAnyOpen = (leaderboardWindow != null && leaderboardWindow.activeSelf) 
+                      || (cameraToolbar != null && cameraToolbar.activeSelf);
+        SetLeaderboardAndCameraVisible(!isAnyOpen);
     }
 
     public void SetJoinPanelVisible(bool visible)
@@ -134,6 +172,7 @@ public class TikTokJoinPanelManager : MonoBehaviour
             joinPanel.SetActive(visible);
             if (visible)
             {
+                joinPanel.transform.SetAsLastSibling();
                 RefreshRacerList();
             }
         }
@@ -146,6 +185,7 @@ public class TikTokJoinPanelManager : MonoBehaviour
             leaderboardWindow.SetActive(visible);
             if (visible)
             {
+                leaderboardWindow.transform.SetAsLastSibling();
                 var lb = leaderboardWindow.GetComponent<LeaderboardUI>();
                 if (lb != null) lb.RefreshLeaderboard();
             }
@@ -154,6 +194,10 @@ public class TikTokJoinPanelManager : MonoBehaviour
         if (cameraToolbar != null)
         {
             cameraToolbar.SetActive(visible);
+            if (visible)
+            {
+                cameraToolbar.transform.SetAsLastSibling();
+            }
         }
     }
 
@@ -262,6 +306,21 @@ public class TikTokJoinPanelManager : MonoBehaviour
         if (TikTokLiveManager.Instance != null)
         {
             TikTokLiveManager.Instance.OnStartRace();
+        }
+    }
+
+    public void OnLeaveToMainMenuClicked()
+    {
+        if (TikTokLiveManager.Instance != null)
+        {
+            TikTokLiveManager.Instance.Disconnect();
+        }
+        SetJoinPanelVisible(false);
+        SetLeaderboardAndCameraVisible(false);
+
+        if (MenuManager.Instance != null)
+        {
+            MenuManager.Instance.ShowTitle();
         }
     }
 }
