@@ -39,6 +39,7 @@ public class MenuManager : MonoBehaviour
     public Button btnTikTokLapsMinus;
     public Button btnTikTokLapsPlus;
     public TikTokJoinPanelManager tiktokJoinPanel;
+    public Button btnOpenGiftActions;
 
     [Header("Selected Config")]
     public RaceManager.GameMode currentMode = RaceManager.GameMode.PlayerRace;
@@ -137,6 +138,18 @@ public class MenuManager : MonoBehaviour
                 selectedTikTokLaps = Mathf.Min(10, selectedTikTokLaps + 1);
                 if (tiktokLapsSlider != null) tiktokLapsSlider.value = selectedTikTokLaps;
                 UpdateTikTokLapsDisplay();
+            });
+        }
+
+        if (btnOpenGiftActions != null)
+        {
+            btnOpenGiftActions.onClick.RemoveAllListeners();
+            btnOpenGiftActions.onClick.AddListener(() =>
+            {
+                if (GiftActionModalUI.Instance != null)
+                {
+                    GiftActionModalUI.Instance.OpenModal();
+                }
             });
         }
 

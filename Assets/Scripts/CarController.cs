@@ -182,10 +182,13 @@ public class CarController : MonoBehaviour
             }
             else
             {
-                if (currentSpeedKmh < maxSpeed)
+                float effSpeed = isNitroActive ? (maxSpeed + 60f) : (isSlowed ? maxSpeed * slowFactor : maxSpeed);
+                float effMotor = isNitroActive ? (maxMotorTorque * 1.7f) : (isSlowed ? maxMotorTorque * slowFactor : maxMotorTorque);
+
+                if (currentSpeedKmh < effSpeed)
                 {
-                    float torqueMult = Mathf.Clamp01(1f - (currentSpeedKmh / maxSpeed));
-                    motorTorque = vInput * maxMotorTorque * torqueMult;
+                    float torqueMult = Mathf.Clamp01(1f - (currentSpeedKmh / effSpeed));
+                    motorTorque = vInput * effMotor * torqueMult;
                 }
                 brakeTorque = 0f;
             }
@@ -287,5 +290,50 @@ public class CarController : MonoBehaviour
         col.GetWorldPose(out Vector3 pos, out Quaternion rot);
         mesh.position = pos;
         mesh.rotation = rot;
+    }
+
+    [HideInInspector] public bool isNitroActive = false;
+    [HideInInspector] public bool isSlowed = false;
+    private float slowFactor = 1.0f;
+
+    public void ApplyNitro(float duration = 4.5f)
+    {
+        StopCoroutine("NitroCoroutine");
+        StartCoroutine(NitroCoroutine(duration));
+    }
+
+    private System.Collections.IEnumerator NitroCoroutine(float duration)
+    {
+        isNitroActive = true;
+        yield return new WaitForSeconds(duration);
+        isNitroActive = false;
+    }
+
+    public void ApplySlow(float multiplier = 0.40f, float duration = 5.0f)
+    {
+        StopCoroutine("SlowCoroutine");
+        StartCoroutine(SlowCoroutine(multiplier, duration));
+    }
+
+    private System.Collections.IEnumerator SlowCoroutine(float multiplier, float duration)
+    {
+        isSlowed = true;
+        slowFactor = Mathf.Clamp(multiplier, 0.2f, 0.85f);
+        yield return new WaitForSeconds(duration);
+        isSlowed = false;
+        slowFactor = 1.0f;
+    }
+
+    public void ApplyExplosion(Vector3 blastOrigin, float blastForce = 13500f, float spinTorque = 10000f)
+    {
+        if (rb != null)
+        {
+            Vector3 blastDir = (transform.position - blastOrigin).normalized;
+            blastDir.y = Mathf.Max(0.6f, blastDir.y);
+            rb.AddForce(blastDir * blastForce + Vector3.up * (blastForce * 0.4f), ForceMode.Impulse);
+
+            float randomSpin = (Random.value > 0.5f ? 1f : -1f) * spinTorque;
+            rb.AddTorque(Vector3.up * randomSpin + transform.right * (spinTorque * 0.35f), ForceMode.Impulse);
+        }
     }
 }

@@ -185,8 +185,16 @@ public class AICarController : MonoBehaviour
         {
             targetSpeed += 60f; // Boost target speed up to 255 km/h!
         }
+        if (isSlowed)
+        {
+            targetSpeed *= slowFactor;
+        }
 
         float effectiveMotor = isNitroActive ? (maxMotorTorque * 1.7f) : maxMotorTorque;
+        if (isSlowed)
+        {
+            effectiveMotor *= slowFactor;
+        }
 
         if (currentSpeedKmh > targetSpeed + 5f)
         {
@@ -355,5 +363,41 @@ public class AICarController : MonoBehaviour
         yield return new WaitForSeconds(duration);
         isPranked = false;
         if (overheadUI != null) overheadUI.ShowPrank(type, false);
+    }
+
+    [HideInInspector] public bool isSlowed = false;
+    private float slowFactor = 1.0f;
+
+    public void ApplySlow(float multiplier = 0.40f, float duration = 5.0f)
+    {
+        StopCoroutine("SlowCoroutine");
+        StartCoroutine(SlowCoroutine(multiplier, duration));
+    }
+
+    private IEnumerator SlowCoroutine(float multiplier, float duration)
+    {
+        isSlowed = true;
+        slowFactor = Mathf.Clamp(multiplier, 0.2f, 0.85f);
+        if (overheadUI != null) overheadUI.ShowPrank("slow", true);
+        yield return new WaitForSeconds(duration);
+        isSlowed = false;
+        slowFactor = 1.0f;
+        if (overheadUI != null) overheadUI.ShowPrank("slow", false);
+    }
+
+    public void ApplyExplosion(Vector3 blastOrigin, float blastForce = 13500f, float spinTorque = 10000f)
+    {
+        if (rb != null)
+        {
+            Vector3 blastDir = (transform.position - blastOrigin).normalized;
+            blastDir.y = Mathf.Max(0.6f, blastDir.y); // upward kick
+            rb.AddForce(blastDir * blastForce + Vector3.up * (blastForce * 0.4f), ForceMode.Impulse);
+
+            float randomSpin = (Random.value > 0.5f ? 1f : -1f) * spinTorque;
+            rb.AddTorque(Vector3.up * randomSpin + transform.right * (spinTorque * 0.35f), ForceMode.Impulse);
+        }
+
+        // Stun for 2.4 seconds
+        ApplyPrank("explosion", 2.4f);
     }
 }

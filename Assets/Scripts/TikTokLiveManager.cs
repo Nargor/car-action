@@ -63,7 +63,28 @@ public class TikTokLiveManager : MonoBehaviour
 
     public List<TikTokRacerEntry> joinedRacers = new List<TikTokRacerEntry>();
     private HashSet<string> joinedUsernames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-    private Dictionary<string, GameObject> userToCar = new Dictionary<string, GameObject>(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, GameObject> userToCar = new Dictionary<string, GameObject>(StringComparer.OrdinalIgnoreCase);
+
+    public GameObject GetCarByUsername(string username)
+    {
+        if (string.IsNullOrEmpty(username)) return null;
+        if (userToCar != null && userToCar.TryGetValue(username, out var car))
+            return car;
+        return null;
+    }
+
+    public List<GameObject> GetAllCars()
+    {
+        var list = new List<GameObject>();
+        if (userToCar != null)
+        {
+            foreach (var kvp in userToCar)
+            {
+                if (kvp.Value != null) list.Add(kvp.Value);
+            }
+        }
+        return list;
+    }
 
     public event Action OnRacersChanged;
 
@@ -397,6 +418,12 @@ public class TikTokLiveManager : MonoBehaviour
     public void ProcessGift(string username, string giftName)
     {
         if (currentState != LiveState.RacingLocked) return;
+
+        if (GiftActionManager.Instance != null)
+        {
+            GiftActionManager.Instance.ExecuteGiftAction(username, giftName);
+            return;
+        }
 
         if (userToCar.TryGetValue(username, out GameObject car) && car != null)
         {

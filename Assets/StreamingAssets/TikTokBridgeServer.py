@@ -1,4 +1,4 @@
-﻿"""
+"""
 TikTok Live Bridge Server
 Provides local HTTP API for Unity to check if streamer is live and stream chat comments (e.g. typing 'a').
 Runs on http://127.0.0.1:8765
@@ -106,6 +106,51 @@ class BridgeRequestHandler(BaseHTTPRequestHandler):
             self._send_cors()
             self.end_headers()
             self.wfile.write(json.dumps({"status": "ok", "tiktok_lib": TIKTOKLIVE_AVAILABLE}).encode('utf-8'))
+            return
+
+        if path in ("/gifts", "/api/gifts"):
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self._send_cors()
+            self.end_headers()
+            gifts_data = []
+            if current_client and hasattr(current_client, 'gift_info') and current_client.gift_info:
+                try:
+                    for g in current_client.gift_info.get('gifts', []):
+                        gifts_data.append({
+                            "id": str(g.get("id", "")),
+                            "name": g.get("name", ""),
+                            "diamonds": g.get("diamond_count", 1),
+                            "icon_url": g.get("image", {}).get("url_list", [""])[0] if isinstance(g.get("image"), dict) else ""
+                        })
+                except Exception:
+                    pass
+
+            if not gifts_data:
+                gifts_data = [
+                    {"id": "5655", "name": "Rose", "diamonds": 1, "icon_url": ""},
+                    {"id": "5827", "name": "TikTok", "diamonds": 1, "icon_url": ""},
+                    {"id": "5269", "name": "Heart", "diamonds": 1, "icon_url": ""},
+                    {"id": "5879", "name": "Finger Heart", "diamonds": 5, "icon_url": ""},
+                    {"id": "5509", "name": "Panda", "diamonds": 5, "icon_url": ""},
+                    {"id": "6003", "name": "Ice Cream", "diamonds": 1, "icon_url": ""},
+                    {"id": "5656", "name": "Doughnut", "diamonds": 30, "icon_url": ""},
+                    {"id": "5657", "name": "Cap", "diamonds": 99, "icon_url": ""},
+                    {"id": "5801", "name": "Sunglasses", "diamonds": 199, "icon_url": ""},
+                    {"id": "6050", "name": "Money Gun", "diamonds": 500, "icon_url": ""},
+                    {"id": "5587", "name": "Corgi", "diamonds": 299, "icon_url": ""},
+                    {"id": "5660", "name": "Swan", "diamonds": 699, "icon_url": ""},
+                    {"id": "6055", "name": "Whale", "diamonds": 2150, "icon_url": ""},
+                    {"id": "6056", "name": "Motorcycle", "diamonds": 2988, "icon_url": ""},
+                    {"id": "6057", "name": "Sports Car", "diamonds": 7000, "icon_url": ""},
+                    {"id": "6058", "name": "Falcon", "diamonds": 10999, "icon_url": ""},
+                    {"id": "6059", "name": "Lion", "diamonds": 29999, "icon_url": ""},
+                    {"id": "6060", "name": "TikTok Universe", "diamonds": 34999, "icon_url": ""},
+                    {"id": "5760", "name": "Fireworks", "diamonds": 1088, "icon_url": ""},
+                    {"id": "5790", "name": "Castle", "diamonds": 20000, "icon_url": ""}
+                ]
+
+            self.wfile.write(json.dumps({"gifts": gifts_data}).encode('utf-8'))
             return
 
         if path == "/check_live":

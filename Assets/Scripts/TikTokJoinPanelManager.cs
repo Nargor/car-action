@@ -33,6 +33,7 @@ public class TikTokJoinPanelManager : MonoBehaviour
     public Button startRaceButton;
     public Button closeButton;
     public Button leaveToMainMenuButton;
+    public Button btnOpenGiftActions;
 
     [Header("Hotkey References")]
     public GameObject leaderboardWindow;
@@ -41,6 +42,7 @@ public class TikTokJoinPanelManager : MonoBehaviour
     [Header("On-Screen HUD Quick Toggles")]
     public Button btnToggleF6;
     public Button btnToggleF7;
+    public Button btnToggleF8;
 
     private List<GameObject> activeRowObjects = new List<GameObject>();
 
@@ -83,6 +85,12 @@ public class TikTokJoinPanelManager : MonoBehaviour
             leaveToMainMenuButton.onClick.AddListener(OnLeaveToMainMenuClicked);
         }
 
+        if (btnOpenGiftActions != null)
+        {
+            btnOpenGiftActions.onClick.RemoveAllListeners();
+            btnOpenGiftActions.onClick.AddListener(ToggleGiftActionModal);
+        }
+
         if (btnToggleF6 != null)
         {
             btnToggleF6.onClick.RemoveAllListeners();
@@ -93,6 +101,12 @@ public class TikTokJoinPanelManager : MonoBehaviour
         {
             btnToggleF7.onClick.RemoveAllListeners();
             btnToggleF7.onClick.AddListener(ToggleJoinPanel);
+        }
+
+        if (btnToggleF8 != null)
+        {
+            btnToggleF8.onClick.RemoveAllListeners();
+            btnToggleF8.onClick.AddListener(ToggleGiftActionModal);
         }
 
         // Hook into TikTokLiveManager event
@@ -116,24 +130,27 @@ public class TikTokJoinPanelManager : MonoBehaviour
     }
 
     // ==========================================
-    // HOTKEYS: F7 (Join Panel), F6 (Leaderboard & Camera Toggle)
+    // HOTKEYS: F7 (Join Panel), F6 (Leaderboard & Camera Toggle), F8 (Gift Actions)
     // ==========================================
     private void HandleHotkeys()
     {
         bool f7 = false;
         bool f6 = false;
+        bool f8 = false;
 
         var kb = Keyboard.current;
         if (kb != null)
         {
             if (kb.f7Key.wasPressedThisFrame) f7 = true;
             if (kb.f6Key.wasPressedThisFrame) f6 = true;
+            if (kb.f8Key.wasPressedThisFrame) f8 = true;
         }
 
         try
         {
             if (!f7) f7 = Input.GetKeyDown(KeyCode.F7);
             if (!f6) f6 = Input.GetKeyDown(KeyCode.F6);
+            if (!f8) f8 = Input.GetKeyDown(KeyCode.F8);
         }
         catch { }
 
@@ -147,6 +164,27 @@ public class TikTokJoinPanelManager : MonoBehaviour
         if (f6)
         {
             ToggleLeaderboardAndCamera();
+        }
+
+        // F8: Toggle Gift Action Manager Modal
+        if (f8)
+        {
+            ToggleGiftActionModal();
+        }
+    }
+
+    public void ToggleGiftActionModal()
+    {
+        if (GiftActionModalUI.Instance != null)
+        {
+            if (GiftActionModalUI.Instance.modalRoot != null && GiftActionModalUI.Instance.modalRoot.activeSelf)
+            {
+                GiftActionModalUI.Instance.CloseModal();
+            }
+            else
+            {
+                GiftActionModalUI.Instance.OpenModal();
+            }
         }
     }
 
