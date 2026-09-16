@@ -1,43 +1,27 @@
-# Unity generated folders
+# ========================================================
+# 🎮 Unity Project .gitignore
+# โปรเจกต์ Car-Action (Unity 6 / URP)
+# ========================================================
+
+# --------------------------------------------------------
+# 1. Unity Generated Folders & Temporary Files (โฟลเดอร์แคชและไฟล์ชั่วคราวของ Unity)
+# --------------------------------------------------------
 [Ll]ibrary/
 [Tt]emp/
 [Oo]bj/
-[Bb]uild/
-[Bb]uilds/
 [Ll]ogs/
 [Uu]ser[Ss]ettings/
 [Mm]emoryCaptures/
 [Rr]ecordings/
-
-# VS/Rider solution files
+[Pp]ackageCache/
 ExportedObj/
 .consulo/
-*.csproj
-*.unityproj
-*.sln
-*.suo
-*.tmp
-*.user
-*.userprefs
-*.pidb
-*.booproj
-*.svd
-*.pdb
-*.mdb
-*.opendb
-*.VC.db
-*.pidb.meta
-*.pdb.meta
-*.mdb.meta
 
-# Unity crash
-sysinfo.txt
-
-# Builds
+# --------------------------------------------------------
+# 2. Build Binaries & Output (ไฟล์ผลลัพธ์จากการ Build ห้ามขึ้น Git)
+# --------------------------------------------------------
 [Bb]uild/
 [Bb]uilds/
-Build/
-Builds/
 Build_PC/
 Build_WebGL/
 *.exe
@@ -49,15 +33,57 @@ Build_WebGL/
 *.aab
 *.unitypackage
 *.app
+*.dmg
 
-# IDE
+# --------------------------------------------------------
+# 3. IDE / Editor Solution & Project Files (ไฟล์โปรเจกต์ของ IDE เช่น VS Code, Visual Studio, Rider)
+# --------------------------------------------------------
+.vs/
 .idea/
 .vscode/
+*.csproj
+*.unityproj
+*.sln
+*.slnx
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.pdb.meta
+*.mdb
+*.mdb.meta
+*.opendb
+*.VC.db
 
-# OS
+# --------------------------------------------------------
+# 4. Crash Reports & Profiling
+# --------------------------------------------------------
+sysinfo.txt
+crashlytics-build.properties
+
+# --------------------------------------------------------
+# 5. OS Generated Files (ไฟล์ขยะของระบบปฏิบัติการ)
+# --------------------------------------------------------
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
-Desktop.ini
+[Dd]esktop.ini
 
-# Screenshots
+# --------------------------------------------------------
+# 6. Test Media / Screenshots (ภาพแคปเจอร์หน้าจอและสื่อทดสอบขนาดใหญ่)
+# --------------------------------------------------------
 Assets/Screenshots/
+[Aa]ssets/[Ss]creenshots/
+
+# --------------------------------------------------------
+# 7. Asset Meta Files Safeguard (ห้ามละเลยไฟล์ .meta ใน Assets)
+# --------------------------------------------------------
+![Aa]ssets/**/*.meta
