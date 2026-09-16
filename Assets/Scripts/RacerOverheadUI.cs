@@ -120,6 +120,7 @@ public class RacerOverheadUI : MonoBehaviour
         if (avatarImage != null && tex != null)
         {
             avatarImage.texture = tex;
+            avatarImage.color = Color.white;
             avatarImage.gameObject.SetActive(true);
 
             if (avatarInitialsText != null)

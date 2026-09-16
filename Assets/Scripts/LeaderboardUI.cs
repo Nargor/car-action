@@ -25,6 +25,10 @@ public class LeaderboardUI : MonoBehaviour
     [Header("Row Prefab / Template")]
     public GameObject rowTemplate; // Disabled template row
 
+    // Selected racer for F5 Quick Launcher / Gifts
+    public static Transform selectedRacerTransform;
+    public static string selectedRacerName = "";
+
     private class RowView
     {
         public GameObject root;
@@ -35,6 +39,7 @@ public class LeaderboardUI : MonoBehaviour
         public TextMeshProUGUI statusText;
         public Button button;
         public Transform racerTransform;
+        public string racerName;
     }
 
     private List<RowView> activeRows = new List<RowView>();
@@ -181,6 +186,7 @@ public class LeaderboardUI : MonoBehaviour
                 var row = activeRows[i];
                 row.root.SetActive(true);
                 row.racerTransform = r.transform;
+                row.racerName = r.name;
 
                 // Position
                 string posStr = (r.position == 1) ? "<color=#FFD700>1</color>"
@@ -198,8 +204,8 @@ public class LeaderboardUI : MonoBehaviour
                 // Status
                 row.statusText.text = $"L{r.currentLap}";
 
-                // Highlight if currently focused by camera
-                bool isFocused = (currentCamTarget != null && currentCamTarget == r.transform);
+                // Highlight if currently focused by camera or selected
+                bool isFocused = (currentCamTarget != null && currentCamTarget == r.transform) || (selectedRacerTransform != null && selectedRacerTransform == r.transform);
                 row.bgImage.color = isFocused 
                     ? new Color(0.25f, 0.45f, 0.75f, 0.90f) 
                     : (i % 2 == 0 ? new Color(0.12f, 0.14f, 0.20f, 0.85f) : new Color(0.08f, 0.10f, 0.15f, 0.85f));
@@ -234,10 +240,16 @@ public class LeaderboardUI : MonoBehaviour
         {
             view.button.onClick.AddListener(() =>
             {
-                if (view.racerTransform != null && ChaseCameraController.Instance != null)
+                if (view.racerTransform != null)
                 {
-                    ChaseCameraController.Instance.SetTarget(view.racerTransform);
+                    selectedRacerTransform = view.racerTransform;
+                    selectedRacerName = view.racerName;
+                    if (ChaseCameraController.Instance != null)
+                    {
+                        ChaseCameraController.Instance.SetTarget(view.racerTransform);
+                    }
                     RefreshLeaderboard();
+                    Debug.Log($"[Leaderboard] Selected target car for F5 Gifts: {selectedRacerName}");
                 }
             });
         }

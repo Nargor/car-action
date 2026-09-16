@@ -43,18 +43,49 @@ async def _check_is_live(username):
     except Exception as e:
         return False, str(e)
 
+user_avatar_cache = {}
+
 def _get_avatar_url(user):
     if not user:
         return ""
-    for attr in ['avatar', 'avatar_thumb', 'avatar_medium', 'avatar_large', 'profile_picture']:
+    # 1. Search across avatar objects in protobuf v3
+    for attr in ['avatar_large', 'avatar_medium', 'avatar_thumb', 'avatar']:
         obj = getattr(user, attr, None)
         if obj:
-            if hasattr(obj, 'urls') and obj.urls:
-                return obj.urls[0]
-            if isinstance(obj, str) and obj.startswith('http'):
-                return obj
-            if isinstance(obj, list) and len(obj) > 0 and isinstance(obj[0], str):
-                return obj[0]
+            urls = getattr(obj, 'url_list', None) or getattr(obj, 'urls', None) or getattr(obj, 'm_urls', None)
+            if urls and len(urls) > 0 and isinstance(urls[0], str) and urls[0].startswith('http'):
+                return urls[0]
+            if hasattr(obj, 'to_dict'):
+                try:
+                    d = obj.to_dict()
+                    for k in ['url_list', 'urls', 'm_urls']:
+                        if k in d and d[k] and len(d[k]) > 0:
+                            u = d[k][0]
+                            if isinstance(u, str) and u.startswith('http'):
+                                return u
+                except Exception:
+                    pass
+
+    # 2. Check full user to_dict()
+    if hasattr(user, 'to_dict'):
+        try:
+            ud = user.to_dict()
+            for attr in ['avatar_large', 'avatar_medium', 'avatar_thumb', 'avatar']:
+                sub = ud.get(attr)
+                if isinstance(sub, dict):
+                    for k in ['url_list', 'urls', 'm_urls']:
+                        if k in sub and sub[k] and len(sub[k]) > 0:
+                            u = sub[k][0]
+                            if isinstance(u, str) and u.startswith('http'):
+                                return u
+        except Exception:
+            pass
+
+    # 3. Fallback: check cached avatar for this username
+    uid = getattr(user, 'unique_id', None) or getattr(user, 'display_id', None)
+    if uid and uid in user_avatar_cache:
+        return user_avatar_cache[uid]
+
     return ""
 
 async def _run_tiktok_client(username):
@@ -69,10 +100,12 @@ async def _run_tiktok_client(username):
     @current_client.on(CommentEvent)
     async def on_comment(event):
         msg = event.comment.strip()
-        user = event.user.unique_id
-        nick = event.user.nickname or user
+        user = getattr(event.user, 'unique_id', None) or getattr(event.user, 'display_id', None) or clean_user
+        nick = getattr(event.user, 'nickname', None) or user
         avatar_url = _get_avatar_url(event.user)
-        print(f"[Bridge] Chat: @{user}: {msg} (avatar: {bool(avatar_url)})")
+        if avatar_url:
+            user_avatar_cache[user] = avatar_url
+        print(f"[Bridge] Chat: @{user}: {msg} | Avatar: {avatar_url}")
         if msg.lower() == "a":
             with event_lock:
                 event_queue.append({
@@ -85,10 +118,12 @@ async def _run_tiktok_client(username):
 
     @current_client.on(GiftEvent)
     async def on_gift(event):
-        user = event.user.unique_id
+        user = getattr(event.user, 'unique_id', None) or getattr(event.user, 'display_id', None) or clean_user
         gift = event.gift.name
         avatar_url = _get_avatar_url(event.user)
-        print(f"[Bridge] Gift: @{user} sent {gift}")
+        if avatar_url:
+            user_avatar_cache[user] = avatar_url
+        print(f"[Bridge] Gift: @{user} sent {gift} | Avatar: {avatar_url}")
         with event_lock:
             event_queue.append({
                 "type": "gift",

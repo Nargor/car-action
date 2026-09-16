@@ -112,9 +112,22 @@ public class GiftQuickLauncherUI : MonoBehaviour
             titleText.text = "<color=#00E5FF><b>TIKTOK GIFT QUICK LAUNCHER</b></color> <size=65%><color=#FFD700>[F5]</color></size>";
         }
 
+        Transform targetCar = LeaderboardUI.selectedRacerTransform;
+        if (targetCar == null && ChaseCameraController.Instance != null)
+        {
+            targetCar = ChaseCameraController.Instance.target;
+        }
+
+        string targetName = LeaderboardUI.selectedRacerName;
+        if (string.IsNullOrEmpty(targetName) && targetCar != null)
+        {
+            targetName = targetCar.name;
+        }
+        if (string.IsNullOrEmpty(targetName)) targetName = "คันแรกในรายการ";
+
         if (statusText != null)
         {
-            statusText.text = "<color=#9EA7BE>คลิกที่ของขวัญเพื่อรัน Action ในเกมทันที (เทสระบบ & สตรีมเมอร์กดเอง)</color>";
+            statusText.text = $"<color=#9EA7BE>เป้าหมายที่จะรันของขวัญ:</color> <color=#FFD700><b>{targetName}</b></color> <size=80%>(เลือกจาก Leaderboard / มุมกล้อง)</size>";
         }
 
         RefreshActionCards();
@@ -247,17 +260,30 @@ public class GiftQuickLauncherUI : MonoBehaviour
     {
         if (action == null) return;
 
-        Debug.Log($"[GiftQuickLauncher] Triggered action for gift '{action.giftName}' ({action.actionType})");
+        Transform targetCar = LeaderboardUI.selectedRacerTransform;
+        if (targetCar == null && ChaseCameraController.Instance != null)
+        {
+            targetCar = ChaseCameraController.Instance.target;
+        }
+
+        string targetName = LeaderboardUI.selectedRacerName;
+        if (string.IsNullOrEmpty(targetName) && targetCar != null)
+        {
+            targetName = targetCar.name;
+        }
+        if (string.IsNullOrEmpty(targetName)) targetName = "player";
+
+        Debug.Log($"[GiftQuickLauncher] Triggered action for gift '{action.giftName}' ({action.actionType}) on target: {targetName}");
 
         if (GiftActionManager.Instance != null)
         {
-            GiftActionManager.Instance.ExecuteGiftAction("player", action.giftName);
+            GiftActionManager.Instance.ExecuteGiftActionForCar(targetCar != null ? targetCar.gameObject : null, targetName, action.giftName);
         }
 
         if (statusText != null)
         {
             string th = TikTokGiftDictionary.GetThaiName(action.giftName);
-            statusText.text = $"<color=#00FF88>⚡ ยิง Effect <b>{action.giftName} ({th})</b> -> <b>{action.actionType}</b> เรียบร้อยแล้ว!</color>";
+            statusText.text = $"<color=#00FF88>⚡ ยิง <b>{action.giftName} ({th})</b> -> <b>{action.actionType}</b> ให้กับ <color=#FFD700><b>{targetName}</b></color> เรียบร้อยแล้ว!</color>";
         }
     }
 }

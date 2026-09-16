@@ -509,27 +509,44 @@ public class TikTokLiveManager : MonoBehaviour
 
     private IEnumerator DownloadAvatarCoroutine(string username, string url, TikTokRacerEntry entry, GameObject carObj)
     {
-        using (UnityWebRequest req = UnityWebRequestTexture.GetTexture(url))
+        if (string.IsNullOrEmpty(url)) yield break;
+
+        Debug.Log($"[TikTokLive] 📥 Downloading avatar for @{username} from: {url}");
+        using (UnityWebRequest req = UnityWebRequest.Get(url))
         {
-            req.timeout = 8;
+            req.downloadHandler = new DownloadHandlerBuffer();
+            req.SetRequestHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+            req.timeout = 10;
             yield return req.SendWebRequest();
-            if (req.result == UnityWebRequest.Result.Success)
+
+            if (req.result == UnityWebRequest.Result.Success && req.downloadHandler != null)
             {
-                Texture2D tex = DownloadHandlerTexture.GetContent(req);
-                if (tex != null)
+                byte[] data = req.downloadHandler.data;
+                if (data != null && data.Length > 0)
                 {
-                    if (entry != null) entry.avatarTexture = tex;
-                    if (carObj != null)
+                    Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                    if (tex.LoadImage(data))
                     {
-                        var overhead = carObj.GetComponentInChildren<RacerOverheadUI>();
-                        if (overhead != null)
+                        tex.filterMode = FilterMode.Bilinear;
+                        tex.wrapMode = TextureWrapMode.Clamp;
+                        tex.name = $"Avatar_{username}";
+
+                        if (entry != null) entry.avatarTexture = tex;
+                        if (carObj != null)
                         {
-                            overhead.SetAvatar(tex);
+                            var overhead = carObj.GetComponentInChildren<RacerOverheadUI>();
+                            if (overhead != null)
+                            {
+                                overhead.SetAvatar(tex);
+                            }
                         }
+                        OnRacersChanged?.Invoke();
+                        Debug.Log($"[TikTokLive] ✅ Successfully loaded avatar for @{username} ({tex.width}x{tex.height})!");
+                        yield break;
                     }
-                    OnRacersChanged?.Invoke();
                 }
             }
+            Debug.LogWarning($"[TikTokLive] ⚠️ Could not download avatar for @{username}: {req.error}");
         }
     }
 

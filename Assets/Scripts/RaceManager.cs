@@ -45,7 +45,8 @@ public class RaceManager : MonoBehaviour
         public int position;
     }
 
-    private List<RacerInfo> allRacers = new List<RacerInfo>();
+    public List<RacerInfo> allRacers = new List<RacerInfo>();
+    public List<RacerInfo> GetRacersLeaderboard() => allRacers;
     private List<GameObject> spawnedAICars = new List<GameObject>();
     private List<Pose> cachedGridPoses = new List<Pose>();
 
@@ -100,10 +101,6 @@ public class RaceManager : MonoBehaviour
         }
     }
 
-    public List<RacerInfo> GetRacersLeaderboard()
-    {
-        return allRacers;
-    }
 
     public void SetupAndStartRace(int laps, int numRacers, GameMode mode)
     {

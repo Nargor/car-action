@@ -340,6 +340,9 @@ public class TikTokJoinPanelManager : MonoBehaviour
 
     public void FocusCameraOnRacer(Transform carTransform, string racerName)
     {
+        LeaderboardUI.selectedRacerTransform = carTransform;
+        LeaderboardUI.selectedRacerName = racerName;
+
         if (carTransform != null && ChaseCameraController.Instance != null)
         {
             ChaseCameraController.Instance.SetTarget(carTransform);

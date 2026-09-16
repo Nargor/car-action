@@ -128,6 +128,11 @@ public class GiftActionManager : MonoBehaviour
     // ==========================================
     public void ExecuteGiftAction(string username, string giftName)
     {
+        ExecuteGiftActionForCar(null, username, giftName);
+    }
+
+    public void ExecuteGiftActionForCar(GameObject explicitCar, string username, string giftName)
+    {
         if (string.IsNullOrEmpty(giftName)) return;
 
         // 1. Find matched enabled action rule
@@ -144,28 +149,39 @@ public class GiftActionManager : MonoBehaviour
             }
         }
 
-        // Find sender car
-        GameObject senderCar = null;
-        if (TikTokLiveManager.Instance != null && TikTokLiveManager.Instance.userToCar != null)
+        // Find sender car: use explicitCar first if provided
+        GameObject senderCar = explicitCar;
+        if (senderCar == null && TikTokLiveManager.Instance != null && TikTokLiveManager.Instance.userToCar != null)
         {
             TikTokLiveManager.Instance.userToCar.TryGetValue(username, out senderCar);
         }
 
         if (senderCar == null)
         {
-            var pObj = GameObject.Find("PlayerCar");
-            if (pObj != null)
+            if (LeaderboardUI.selectedRacerTransform != null)
             {
-                senderCar = pObj;
+                senderCar = LeaderboardUI.selectedRacerTransform.gameObject;
+            }
+            else if (ChaseCameraController.Instance != null && ChaseCameraController.Instance.target != null)
+            {
+                senderCar = ChaseCameraController.Instance.target.gameObject;
             }
             else
             {
-                var pCtrl = UnityEngine.Object.FindAnyObjectByType<CarController>();
-                if (pCtrl != null) senderCar = pCtrl.gameObject;
+                var pObj = GameObject.Find("PlayerCar");
+                if (pObj != null && pObj.activeInHierarchy)
+                {
+                    senderCar = pObj;
+                }
                 else
                 {
-                    var ai = UnityEngine.Object.FindAnyObjectByType<AICarController>();
-                    if (ai != null) senderCar = ai.gameObject;
+                    var pCtrl = UnityEngine.Object.FindAnyObjectByType<CarController>();
+                    if (pCtrl != null && pCtrl.gameObject.activeInHierarchy) senderCar = pCtrl.gameObject;
+                    else
+                    {
+                        var ai = UnityEngine.Object.FindAnyObjectByType<AICarController>();
+                        if (ai != null) senderCar = ai.gameObject;
+                    }
                 }
             }
         }
@@ -182,15 +198,12 @@ public class GiftActionManager : MonoBehaviour
             case GiftActionType.SpeedBoost:
                 ApplySpeedBoost(senderCar, username, matchedRule.duration, giftName);
                 break;
-
             case GiftActionType.DropBomb:
                 ApplyDropBomb(senderCar, username, giftName);
                 break;
-
             case GiftActionType.ShootRPG:
                 ApplyShootRPG(senderCar, username, giftName);
                 break;
-
             case GiftActionType.SlowAll:
                 ApplySlowAll(senderCar, username, matchedRule.duration, matchedRule.intensity, giftName);
                 break;
@@ -215,10 +228,27 @@ public class GiftActionManager : MonoBehaviour
     {
         if (senderCar == null) return;
 
-        Vector3 spawnPos = senderCar.transform.position - senderCar.transform.forward * 4.2f + Vector3.up * 0.1f;
-        TrackBomb.CreateBomb(spawnPos, senderCar.transform.rotation, senderCar.transform);
+        Vector3 dropOrigin = senderCar.transform.position - senderCar.transform.forward * 3.5f;
+        Vector3 groundPos = dropOrigin;
+        Quaternion groundRot = senderCar.transform.rotation;
 
-        Debug.Log($"[GiftAction] 💣 LANDMINE dropped by @{username} via gift '{giftName}'!");
+        // Raycast down to find track asphalt flush
+        if (Physics.Raycast(dropOrigin + Vector3.up * 2.0f, Vector3.down, out RaycastHit hit, 10f))
+        {
+            groundPos = hit.point + hit.normal * 0.04f; // Directly sitting on track surface!
+            Vector3 forwardOnPlane = Vector3.ProjectOnPlane(senderCar.transform.forward, hit.normal).normalized;
+            if (forwardOnPlane.sqrMagnitude > 0.01f)
+            {
+                groundRot = Quaternion.LookRotation(forwardOnPlane, hit.normal);
+            }
+        }
+        else
+        {
+            groundPos.y = Mathf.Max(0.05f, senderCar.transform.position.y - 0.3f);
+        }
+
+        TrackBomb.CreateBomb(groundPos, groundRot, senderCar.transform);
+        Debug.Log($"[GiftAction] 💣 LANDMINE dropped on ground by @{username} via gift '{giftName}'!");
     }
 
     private void ApplyShootRPG(GameObject senderCar, string username, string giftName)
