@@ -67,7 +67,7 @@ crashlytics-build.properties
 Assets/Resources/PerformanceTestRun*
 
 # --------------------------------------------------------
-# 5. OS Generated Files (ไฟล์ขยะของระบบปฏิบัติการ)
+# 5. OS & Python Generated Files
 # --------------------------------------------------------
 .DS_Store
 .DS_Store?
@@ -77,6 +77,8 @@ Assets/Resources/PerformanceTestRun*
 ehthumbs.db
 Thumbs.db
 [Dd]esktop.ini
+__pycache__/
+*.pyc
 
 # --------------------------------------------------------
 # 6. Test Media / Screenshots (ภาพแคปเจอร์หน้าจอและสื่อทดสอบขนาดใหญ่)

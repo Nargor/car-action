@@ -372,6 +372,10 @@ public class TikTokLiveManager : MonoBehaviour
 
         if (RaceManager.Instance != null)
         {
+            if (!RaceManager.Instance.gameObject.activeInHierarchy)
+            {
+                RaceManager.Instance.gameObject.SetActive(true);
+            }
             RaceManager.Instance.StartTikTokRace();
         }
     }
@@ -511,8 +515,33 @@ public class TikTokLiveManager : MonoBehaviour
     {
         if (string.IsNullOrEmpty(url)) yield break;
 
-        Debug.Log($"[TikTokLive] 📥 Downloading avatar for @{username} from: {url}");
-        using (UnityWebRequest req = UnityWebRequest.Get(url))
+        // 1. Check local persistent disk cache first
+        string cacheDir = System.IO.Path.Combine(Application.persistentDataPath, "avatars");
+        string cacheFile = System.IO.Path.Combine(cacheDir, $"{username}.png");
+        if (System.IO.File.Exists(cacheFile))
+        {
+            byte[] cachedData = null;
+            try { cachedData = System.IO.File.ReadAllBytes(cacheFile); } catch {}
+            if (cachedData != null && cachedData.Length > 0)
+            {
+                Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                if (tex.LoadImage(cachedData))
+                {
+                    ApplyAvatarTexture(username, tex, entry, carObj);
+                    yield break;
+                }
+            }
+        }
+
+        // 2. Format URL: if TikTok CDN WebP URL and bridge is running, route via bridge /avatar to convert to PNG
+        string fetchUrl = url;
+        if (!url.StartsWith("http://127.0.0.1") && (url.Contains("tiktokcdn.com") || url.Contains(".webp")))
+        {
+            fetchUrl = $"{bridgeBaseUrl}/avatar?username={UnityWebRequest.EscapeURL(username)}&url={UnityWebRequest.EscapeURL(url)}";
+        }
+
+        Debug.Log($"[TikTokLive] 📥 Downloading avatar for @{username} from: {fetchUrl}");
+        using (UnityWebRequest req = UnityWebRequest.Get(fetchUrl))
         {
             req.downloadHandler = new DownloadHandlerBuffer();
             req.SetRequestHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
@@ -527,27 +556,66 @@ public class TikTokLiveManager : MonoBehaviour
                     Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
                     if (tex.LoadImage(data))
                     {
-                        tex.filterMode = FilterMode.Bilinear;
-                        tex.wrapMode = TextureWrapMode.Clamp;
-                        tex.name = $"Avatar_{username}";
-
-                        if (entry != null) entry.avatarTexture = tex;
-                        if (carObj != null)
+                        try
                         {
-                            var overhead = carObj.GetComponentInChildren<RacerOverheadUI>();
-                            if (overhead != null)
-                            {
-                                overhead.SetAvatar(tex);
-                            }
+                            if (!System.IO.Directory.Exists(cacheDir)) System.IO.Directory.CreateDirectory(cacheDir);
+                            System.IO.File.WriteAllBytes(cacheFile, data);
                         }
-                        OnRacersChanged?.Invoke();
-                        Debug.Log($"[TikTokLive] ✅ Successfully loaded avatar for @{username} ({tex.width}x{tex.height})!");
+                        catch {}
+
+                        ApplyAvatarTexture(username, tex, entry, carObj);
                         yield break;
                     }
                 }
             }
+
+            // Fallback retry with direct URL if route via bridge failed
+            if (fetchUrl != url)
+            {
+                using (UnityWebRequest fallbackReq = UnityWebRequest.Get(url))
+                {
+                    fallbackReq.downloadHandler = new DownloadHandlerBuffer();
+                    fallbackReq.SetRequestHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+                    fallbackReq.timeout = 8;
+                    yield return fallbackReq.SendWebRequest();
+
+                    if (fallbackReq.result == UnityWebRequest.Result.Success && fallbackReq.downloadHandler != null)
+                    {
+                        byte[] fbData = fallbackReq.downloadHandler.data;
+                        if (fbData != null && fbData.Length > 0)
+                        {
+                            Texture2D fbTex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                            if (fbTex.LoadImage(fbData))
+                            {
+                                ApplyAvatarTexture(username, fbTex, entry, carObj);
+                                yield break;
+                            }
+                        }
+                    }
+                }
+            }
+
             Debug.LogWarning($"[TikTokLive] ⚠️ Could not download avatar for @{username}: {req.error}");
         }
+    }
+
+    private void ApplyAvatarTexture(string username, Texture2D tex, TikTokRacerEntry entry, GameObject carObj)
+    {
+        tex.filterMode = FilterMode.Bilinear;
+        tex.wrapMode = TextureWrapMode.Clamp;
+        tex.name = $"Avatar_{username}";
+
+        if (entry != null) entry.avatarTexture = tex;
+        if (carObj != null)
+        {
+            var overhead = carObj.GetComponentInChildren<RacerOverheadUI>();
+            if (overhead != null)
+            {
+                overhead.SetAvatar(tex);
+            }
+        }
+        OnRacersChanged?.Invoke();
+        Debug.Log($"[TikTokLive] ✅ Successfully applied avatar for @{username} ({tex.width}x{tex.height})!");
     }
 
     // ==========================================

@@ -1,15 +1,26 @@
 """
 TikTok Live Bridge Server
-Provides local HTTP API for Unity to check if streamer is live and stream chat comments (e.g. typing 'a').
+Provides local HTTP API for Unity to check if streamer is live, stream chat comments (e.g. typing 'a'),
+and serve converted PNG avatars compatible with Unity Texture2D.LoadImage.
 Runs on http://127.0.0.1:8765
 """
 
 import sys
+import os
+import io
 import json
 import asyncio
 import threading
+import urllib.request
+import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
+
+try:
+    from PIL import Image
+    PILLOW_AVAILABLE = True
+except ImportError:
+    PILLOW_AVAILABLE = False
 
 try:
     from TikTokLive import TikTokLiveClient
@@ -18,11 +29,16 @@ try:
 except ImportError:
     TIKTOKLIVE_AVAILABLE = False
 
+SERVER_PORT = 8765
 current_client = None
 current_task = None
 event_queue = []
 event_lock = threading.Lock()
 loop = None
+
+user_avatar_cache = {}      # username -> raw_url
+avatar_png_cache = {}       # username/url -> bytes (PNG)
+avatar_lock = threading.Lock()
 
 def get_event_loop():
     global loop
@@ -31,6 +47,52 @@ def get_event_loop():
         t = threading.Thread(target=loop.run_forever, daemon=True)
         t.start()
     return loop
+
+def convert_to_png(raw_bytes):
+    """Converts image bytes (WebP, JPG, etc.) to pure PNG bytes for Unity Texture2D.LoadImage."""
+    if not raw_bytes:
+        return None
+    if raw_bytes.startswith(b'\x89PNG\r\n\x1a\n'):
+        return raw_bytes
+    if PILLOW_AVAILABLE:
+        try:
+            img = Image.open(io.BytesIO(raw_bytes))
+            if img.mode not in ("RGB", "RGBA"):
+                img = img.convert("RGBA")
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            return buf.getvalue()
+        except Exception as e:
+            print(f"[Bridge] Pillow conversion error: {e}", flush=True)
+    return raw_bytes
+
+def fetch_avatar_png(url):
+    """Downloads avatar from TikTok CDN and converts to PNG."""
+    if not url:
+        return None
+    try:
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "Referer": "https://www.tiktok.com/"
+        })
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = resp.read()
+            return convert_to_png(data)
+    except Exception as e:
+        print(f"[Bridge] Failed to fetch avatar from {url[:70]}...: {e}", flush=True)
+        return None
+
+def prefetch_avatar(user, url):
+    """Prefetches and converts avatar in background thread so Unity gets it instantly."""
+    if not url:
+        return
+    png = fetch_avatar_png(url)
+    if png:
+        with avatar_lock:
+            if user:
+                avatar_png_cache[user] = png
+            avatar_png_cache[url] = png
+        print(f"[Bridge] 🖼️ Cached PNG avatar for @{user} ({len(png)} bytes)", flush=True)
 
 async def _check_is_live(username):
     if not TIKTOKLIVE_AVAILABLE:
@@ -43,13 +105,11 @@ async def _check_is_live(username):
     except Exception as e:
         return False, str(e)
 
-user_avatar_cache = {}
-
 def _get_avatar_url(user):
     if not user:
         return ""
     # 1. Search across avatar objects in protobuf v3
-    for attr in ['avatar_large', 'avatar_medium', 'avatar_thumb', 'avatar']:
+    for attr in ['avatar_large', 'avatar_medium', 'avatar_thumb', 'avatar_jpg', 'avatar']:
         obj = getattr(user, attr, None)
         if obj:
             urls = getattr(obj, 'url_list', None) or getattr(obj, 'urls', None) or getattr(obj, 'm_urls', None)
@@ -70,7 +130,7 @@ def _get_avatar_url(user):
     if hasattr(user, 'to_dict'):
         try:
             ud = user.to_dict()
-            for attr in ['avatar_large', 'avatar_medium', 'avatar_thumb', 'avatar']:
+            for attr in ['avatar_large', 'avatar_medium', 'avatar_thumb', 'avatar_jpg', 'avatar']:
                 sub = ud.get(attr)
                 if isinstance(sub, dict):
                     for k in ['url_list', 'urls', 'm_urls']:
@@ -95,17 +155,22 @@ async def _run_tiktok_client(username):
 
     @current_client.on(ConnectEvent)
     async def on_connect(event):
-        print(f"[Bridge] Connected to TikTok Live: @{clean_user}")
+        print(f"[Bridge] Connected to TikTok Live: @{clean_user}", flush=True)
 
     @current_client.on(CommentEvent)
     async def on_comment(event):
         msg = event.comment.strip()
         user = getattr(event.user, 'unique_id', None) or getattr(event.user, 'display_id', None) or clean_user
         nick = getattr(event.user, 'nickname', None) or user
-        avatar_url = _get_avatar_url(event.user)
-        if avatar_url:
-            user_avatar_cache[user] = avatar_url
-        print(f"[Bridge] Chat: @{user}: {msg} | Avatar: {avatar_url}")
+        raw_avatar = _get_avatar_url(event.user)
+        if raw_avatar:
+            user_avatar_cache[user] = raw_avatar
+            threading.Thread(target=prefetch_avatar, args=(user, raw_avatar), daemon=True).start()
+            bridge_avatar_url = f"http://127.0.0.1:{SERVER_PORT}/avatar?username={urllib.parse.quote(user)}&url={urllib.parse.quote(raw_avatar)}"
+        else:
+            bridge_avatar_url = ""
+
+        print(f"[Bridge] Chat: @{user}: {msg} | Avatar: {raw_avatar[:60] if raw_avatar else 'None'}", flush=True)
         if msg.lower() == "a":
             with event_lock:
                 event_queue.append({
@@ -113,29 +178,34 @@ async def _run_tiktok_client(username):
                     "username": user,
                     "nickname": nick,
                     "message": msg,
-                    "avatar_url": avatar_url
+                    "avatar_url": bridge_avatar_url
                 })
 
     @current_client.on(GiftEvent)
     async def on_gift(event):
         user = getattr(event.user, 'unique_id', None) or getattr(event.user, 'display_id', None) or clean_user
         gift = event.gift.name
-        avatar_url = _get_avatar_url(event.user)
-        if avatar_url:
-            user_avatar_cache[user] = avatar_url
-        print(f"[Bridge] Gift: @{user} sent {gift} | Avatar: {avatar_url}")
+        raw_avatar = _get_avatar_url(event.user)
+        if raw_avatar:
+            user_avatar_cache[user] = raw_avatar
+            threading.Thread(target=prefetch_avatar, args=(user, raw_avatar), daemon=True).start()
+            bridge_avatar_url = f"http://127.0.0.1:{SERVER_PORT}/avatar?username={urllib.parse.quote(user)}&url={urllib.parse.quote(raw_avatar)}"
+        else:
+            bridge_avatar_url = ""
+
+        print(f"[Bridge] Gift: @{user} sent {gift} | Avatar: {raw_avatar[:60] if raw_avatar else 'None'}", flush=True)
         with event_lock:
             event_queue.append({
                 "type": "gift",
                 "username": user,
                 "gift_name": gift,
-                "avatar_url": avatar_url
+                "avatar_url": bridge_avatar_url
             })
 
     try:
         await current_client.start()
     except Exception as e:
-        print(f"[Bridge] Client stopped or error: {e}")
+        print(f"[Bridge] Client stopped or error: {e}", flush=True)
 
 class BridgeRequestHandler(BaseHTTPRequestHandler):
     def _send_cors(self):
@@ -158,8 +228,43 @@ class BridgeRequestHandler(BaseHTTPRequestHandler):
             self.send_header('Content-Type', 'application/json')
             self._send_cors()
             self.end_headers()
-            self.wfile.write(json.dumps({"status": "ok", "tiktok_lib": TIKTOKLIVE_AVAILABLE}).encode('utf-8'))
+            self.wfile.write(json.dumps({"status": "ok", "tiktok_lib": TIKTOKLIVE_AVAILABLE, "pillow": PILLOW_AVAILABLE}).encode('utf-8'))
             return
+
+        if path == "/avatar":
+            u = qs.get("username", [""])[0]
+            raw_url = qs.get("url", [""])[0]
+
+            png_data = None
+            with avatar_lock:
+                if u and u in avatar_png_cache:
+                    png_data = avatar_png_cache[u]
+                elif raw_url and raw_url in avatar_png_cache:
+                    png_data = avatar_png_cache[raw_url]
+
+            if not png_data:
+                target_url = raw_url or user_avatar_cache.get(u, "")
+                if target_url:
+                    png_data = fetch_avatar_png(target_url)
+                    if png_data:
+                        with avatar_lock:
+                            if u:
+                                avatar_png_cache[u] = png_data
+                            if target_url:
+                                avatar_png_cache[target_url] = png_data
+
+            if png_data:
+                self.send_response(200)
+                self.send_header('Content-Type', 'image/png')
+                self.send_header('Content-Length', str(len(png_data)))
+                self._send_cors()
+                self.end_headers()
+                self.wfile.write(png_data)
+                return
+            else:
+                self.send_response(404)
+                self.end_headers()
+                return
 
         if path in ("/gifts", "/api/gifts"):
             self.send_response(200)
@@ -324,8 +429,10 @@ class BridgeRequestHandler(BaseHTTPRequestHandler):
         pass
 
 def run_server(port=8765):
+    global SERVER_PORT
+    SERVER_PORT = port
     server = HTTPServer(('127.0.0.1', port), BridgeRequestHandler)
-    print(f"[TikTokBridge] Server running on http://127.0.0.1:{port}")
+    print(f"[TikTokBridge] Server running on http://127.0.0.1:{port} (Pillow: {PILLOW_AVAILABLE})", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
