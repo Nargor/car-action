@@ -38,6 +38,20 @@ public static class BuildPipelineScript
             }
         }
 
+        // Configure Webder.Nargor Splash Screen cutscene
+        Sprite splashSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/UI/webder_nargor_splash.png");
+        if (splashSprite != null)
+        {
+            var logo = PlayerSettings.SplashScreenLogo.Create(3.0f, splashSprite);
+            PlayerSettings.SplashScreen.logos = new PlayerSettings.SplashScreenLogo[] { logo };
+            PlayerSettings.SplashScreen.show = true;
+            PlayerSettings.SplashScreen.showUnityLogo = true;
+            PlayerSettings.SplashScreen.drawMode = PlayerSettings.SplashScreen.DrawMode.AllSequential;
+            PlayerSettings.SplashScreen.backgroundColor = new Color(0.03f, 0.03f, 0.04f, 1.0f);
+            PlayerSettings.SplashScreen.animationMode = PlayerSettings.SplashScreen.AnimationMode.Dolly;
+            PlayerSettings.SplashScreen.animationLogoZoom = 0.12f;
+        }
+
         BuildPlayerOptions options = new BuildPlayerOptions
         {
             scenes = Scenes,

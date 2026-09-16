@@ -38,7 +38,7 @@ public class CarController : MonoBehaviour
     public float antiRollForce = 6000f;
 
     [Header("Race State")]
-    public bool controlsEnabled = true;
+    public bool controlsEnabled = false;
 
     private Rigidbody rb;
     private float currentSpeedKmh;

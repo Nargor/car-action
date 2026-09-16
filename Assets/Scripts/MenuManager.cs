@@ -163,6 +163,12 @@ public class MenuManager : MonoBehaviour
         if (lobbyPanel != null) lobbyPanel.SetActive(false);
         if (hudPanel != null) hudPanel.SetActive(false);
         if (tiktokLobbyPanel != null) tiktokLobbyPanel.SetActive(false);
+
+        if (RaceManager.Instance != null && RaceManager.Instance.playerCar != null)
+        {
+            RaceManager.Instance.playerCar.controlsEnabled = false;
+            RaceManager.Instance.playerCar.gameObject.SetActive(false);
+        }
     }
 
     public void ShowLobby()

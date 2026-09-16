@@ -140,21 +140,22 @@ public class CarAudioController : MonoBehaviour
 
     public bool IsRaceActive()
     {
-        // If pause menu is active, mute audio
+        // 1. If pause menu is active, mute audio
         if (PauseMenuManager.Instance != null && PauseMenuManager.Instance.IsPaused)
             return false;
 
-        // If race manager exists, only allow car sound when race has actually started
-        if (RaceManager.Instance != null)
+        // 2. If race manager exists, only allow car sound when race has actually started
+        var rm = RaceManager.Instance != null ? RaceManager.Instance : Object.FindAnyObjectByType<RaceManager>();
+        if (rm != null)
         {
-            return RaceManager.Instance.isRaceActive;
+            return rm.isRaceActive;
         }
 
-        // Fallback for isolated scene testing without RaceManager
-        if (playerCar != null) return playerCar.controlsEnabled || playerCar.SpeedKmh > 3f;
-        if (aiCar != null) return aiCar.isRacing || aiCar.SpeedKmh > 3f;
-        if (rb != null) return rb.linearVelocity.magnitude > 1f;
-        return true;
+        // 3. Fallback for isolated scene testing without RaceManager (must be moving at speed!)
+        if (rb != null && rb.linearVelocity.magnitude > 2.0f)
+            return true;
+
+        return false;
     }
 
     void OnEnable()
@@ -163,6 +164,12 @@ public class CarAudioController : MonoBehaviour
         {
             if (idleSource != null && idleSource.clip != null && !idleSource.isPlaying) idleSource.Play();
             if (runningSource != null && runningSource.clip != null && !runningSource.isPlaying) runningSource.Play();
+        }
+        else
+        {
+            if (idleSource != null) { idleSource.volume = 0f; idleSource.Stop(); }
+            if (runningSource != null) { runningSource.volume = 0f; runningSource.Stop(); }
+            if (skidSource != null) { skidSource.volume = 0f; skidSource.Stop(); }
         }
     }
 
@@ -180,6 +187,12 @@ public class CarAudioController : MonoBehaviour
             if (idleSource != null && idleSource.clip != null && !idleSource.isPlaying) idleSource.Play();
             if (runningSource != null && runningSource.clip != null && !runningSource.isPlaying) runningSource.Play();
         }
+        else
+        {
+            if (idleSource != null) { idleSource.volume = 0f; idleSource.Stop(); }
+            if (runningSource != null) { runningSource.volume = 0f; runningSource.Stop(); }
+            if (skidSource != null) { skidSource.volume = 0f; skidSource.Stop(); }
+        }
     }
 
     void Update()
@@ -194,18 +207,15 @@ public class CarAudioController : MonoBehaviour
         bool raceActive = IsRaceActive();
         if (!raceActive)
         {
-            float fadeSpeed = Time.unscaledDeltaTime * 8f;
             if (idleSource != null)
             {
-                idleSource.volume = Mathf.MoveTowards(idleSource.volume, 0f, fadeSpeed);
-                if (idleSource.volume <= 0.001f && idleSource.isPlaying)
-                    idleSource.Pause();
+                idleSource.volume = 0f;
+                if (idleSource.isPlaying) idleSource.Stop();
             }
             if (runningSource != null)
             {
-                runningSource.volume = Mathf.MoveTowards(runningSource.volume, 0f, fadeSpeed);
-                if (runningSource.volume <= 0.001f && runningSource.isPlaying)
-                    runningSource.Pause();
+                runningSource.volume = 0f;
+                if (runningSource.isPlaying) runningSource.Stop();
             }
             if (skidSource != null && skidSource.isPlaying)
             {

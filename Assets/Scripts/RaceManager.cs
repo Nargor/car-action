@@ -87,11 +87,17 @@ public class RaceManager : MonoBehaviour
         if (trackGenerator == null)
             trackGenerator = FindObjectOfType<RaceTrackGenerator>();
         if (playerCar == null)
-            playerCar = FindObjectOfType<CarController>();
+            playerCar = FindAnyObjectByType<CarController>(FindObjectsInactive.Include);
         if (hudController == null)
             hudController = FindObjectOfType<HUDController>();
         if (menuManager == null)
             menuManager = FindObjectOfType<MenuManager>();
+
+        if (playerCar != null)
+        {
+            playerCar.controlsEnabled = false;
+            playerCar.gameObject.SetActive(false);
+        }
     }
 
     public List<RacerInfo> GetRacersLeaderboard()
@@ -301,6 +307,7 @@ public class RaceManager : MonoBehaviour
         if (playerCar != null)
         {
             playerCar.controlsEnabled = false;
+            playerCar.gameObject.SetActive(false);
             var rb = playerCar.GetComponent<Rigidbody>();
             if (rb != null)
             {
