@@ -145,6 +145,18 @@ public class RaceManager : MonoBehaviour
                     position = 1
                 });
 
+                // Attach Overhead UI for Player
+                var pOverhead = playerCar.transform.Find("OverheadUI");
+                if (pOverhead == null)
+                {
+                    var pObj = new GameObject("OverheadUI");
+                    pObj.transform.SetParent(playerCar.transform, false);
+                    pObj.transform.localPosition = new Vector3(0f, 2.2f, 0f);
+                    var pUI = pObj.AddComponent<RacerOverheadUI>();
+                    pUI.SetRacer("PLAYER", new Color(0.88f, 0.04f, 0.04f));
+                    pUI.SetRank(1);
+                }
+
                 if (ChaseCameraController.Instance != null)
                 {
                     ChaseCameraController.Instance.SetTarget(playerCar.transform);
@@ -257,10 +269,11 @@ public class RaceManager : MonoBehaviour
         // Create Overhead Billboard UI
         var overheadObj = new GameObject("OverheadUI");
         overheadObj.transform.SetParent(aiObj.transform, false);
-        overheadObj.transform.localPosition = new Vector3(0f, 1.85f, 0f);
+        overheadObj.transform.localPosition = new Vector3(0f, 2.2f, 0f);
 
         var overheadUI = overheadObj.AddComponent<RacerOverheadUI>();
         overheadUI.SetRacer(username, carCol, avatarTex);
+        overheadUI.SetRank(slotIndex + 1);
         ai.overheadUI = overheadUI;
 
         spawnedAICars.Add(aiObj);
@@ -425,6 +438,17 @@ public class RaceManager : MonoBehaviour
             float lateralLane = (slotIdx % 2 == 0) ? -5.5f : 5.5f;
 
             ai.Initialize(trackGenerator.pathPoints, 0, lateralLane, aiColor, driverName);
+
+            // Create Overhead Billboard UI for AI
+            var overheadObj = new GameObject("OverheadUI");
+            overheadObj.transform.SetParent(aiObj.transform, false);
+            overheadObj.transform.localPosition = new Vector3(0f, 2.2f, 0f);
+
+            var overheadUI = overheadObj.AddComponent<RacerOverheadUI>();
+            overheadUI.SetRacer(driverName, aiColor);
+            overheadUI.SetRank(slotIdx + 1);
+            ai.overheadUI = overheadUI;
+
             spawnedAICars.Add(aiObj);
 
             allRacers.Add(new RacerInfo
@@ -543,10 +567,20 @@ public class RaceManager : MonoBehaviour
 
         for (int pos = 0; pos < allRacers.Count; pos++)
         {
-            allRacers[pos].position = pos + 1;
+            int rank = pos + 1;
+            allRacers[pos].position = rank;
             if (allRacers[pos].isPlayer)
             {
-                playerPosition = pos + 1;
+                playerPosition = rank;
+            }
+
+            if (allRacers[pos].transform != null)
+            {
+                var overhead = allRacers[pos].transform.GetComponentInChildren<RacerOverheadUI>();
+                if (overhead != null)
+                {
+                    overhead.SetRank(rank);
+                }
             }
         }
 

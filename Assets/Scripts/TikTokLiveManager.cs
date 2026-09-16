@@ -52,6 +52,7 @@ public class TikTokLiveManager : MonoBehaviour
         public string nickname;
         public string message;
         public string gift_name;
+        public string avatar_url;
     }
 
     [System.Serializable]
@@ -319,7 +320,7 @@ public class TikTokLiveManager : MonoBehaviour
                             {
                                 if (ev.type == "chat_a")
                                 {
-                                    ProcessChatMessage(ev.username, "a", null);
+                                    ProcessChatMessage(ev.username, "a", null, ev.avatar_url);
                                 }
                                 else if (ev.type == "gift")
                                 {
@@ -378,7 +379,7 @@ public class TikTokLiveManager : MonoBehaviour
     // ==========================================
     // 3. PROCESS VIEWER CHAT & SPAWN CAR
     // ==========================================
-    public bool ProcessChatMessage(string username, string message, Texture2D avatarTex = null)
+    public bool ProcessChatMessage(string username, string message, Texture2D avatarTex = null, string avatarUrl = null)
     {
         if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(message)) return false;
 
@@ -402,7 +403,7 @@ public class TikTokLiveManager : MonoBehaviour
                 }
 
                 // Register and spawn car on the grid!
-                SpawnViewerCar(username, avatarTex);
+                SpawnViewerCar(username, avatarTex, avatarUrl);
                 return true;
             }
             else if (currentState == LiveState.RacingLocked)
@@ -470,7 +471,7 @@ public class TikTokLiveManager : MonoBehaviour
         }
     }
 
-    private void SpawnViewerCar(string username, Texture2D avatarTex)
+    private void SpawnViewerCar(string username, Texture2D avatarTex, string avatarUrl = null)
     {
         if (RaceManager.Instance == null) return;
 
@@ -484,18 +485,51 @@ public class TikTokLiveManager : MonoBehaviour
             var ai = carObj.GetComponent<AICarController>();
             Color col = ai != null ? ai.carColor : Color.white;
 
-            joinedRacers.Add(new TikTokRacerEntry
+            var entry = new TikTokRacerEntry
             {
                 username = username,
                 carObject = carObj,
                 avatarTexture = avatarTex,
                 carColor = col,
                 gridSlot = slotIdx
-            });
+            };
+            joinedRacers.Add(entry);
+
+            // If avatarUrl provided, start background download coroutine
+            if (!string.IsNullOrEmpty(avatarUrl))
+            {
+                StartCoroutine(DownloadAvatarCoroutine(username, avatarUrl, entry, carObj));
+            }
 
             Debug.Log($"[TikTokLive] 🏎️ @{username} JOINED! Placed at Grid #{slotIdx + 1} ({joinedRacers.Count}/{maxRacers})");
 
             OnRacersChanged?.Invoke();
+        }
+    }
+
+    private IEnumerator DownloadAvatarCoroutine(string username, string url, TikTokRacerEntry entry, GameObject carObj)
+    {
+        using (UnityWebRequest req = UnityWebRequestTexture.GetTexture(url))
+        {
+            req.timeout = 8;
+            yield return req.SendWebRequest();
+            if (req.result == UnityWebRequest.Result.Success)
+            {
+                Texture2D tex = DownloadHandlerTexture.GetContent(req);
+                if (tex != null)
+                {
+                    if (entry != null) entry.avatarTexture = tex;
+                    if (carObj != null)
+                    {
+                        var overhead = carObj.GetComponentInChildren<RacerOverheadUI>();
+                        if (overhead != null)
+                        {
+                            overhead.SetAvatar(tex);
+                        }
+                    }
+                    OnRacersChanged?.Invoke();
+                }
+            }
         }
     }
 
@@ -525,7 +559,8 @@ public class TikTokLiveManager : MonoBehaviour
             attempts++;
         } while (joinedUsernames.Contains(bName) && attempts < 20);
 
-        ProcessChatMessage(bName, "a", null);
+        string botAvatar = $"https://api.dicebear.com/7.x/bottts/png?seed={bName}&size=128";
+        ProcessChatMessage(bName, "a", null, botAvatar);
         Debug.Log($"[TikTokLive] 🤖 Added {bName} into the race! Total racers: {joinedRacers.Count}/{maxRacers}");
     }
 
@@ -542,6 +577,7 @@ public class TikTokLiveManager : MonoBehaviour
     {
         if (currentState != LiveState.WaitingLobby) return;
         string uname = $"viewer_{UnityEngine.Random.Range(100, 999)}";
-        ProcessChatMessage(uname, "a", null);
+        string simAvatar = $"https://api.dicebear.com/7.x/bottts/png?seed={uname}&size=128";
+        ProcessChatMessage(uname, "a", null, simAvatar);
     }
 }

@@ -43,6 +43,20 @@ async def _check_is_live(username):
     except Exception as e:
         return False, str(e)
 
+def _get_avatar_url(user):
+    if not user:
+        return ""
+    for attr in ['avatar', 'avatar_thumb', 'avatar_medium', 'avatar_large', 'profile_picture']:
+        obj = getattr(user, attr, None)
+        if obj:
+            if hasattr(obj, 'urls') and obj.urls:
+                return obj.urls[0]
+            if isinstance(obj, str) and obj.startswith('http'):
+                return obj
+            if isinstance(obj, list) and len(obj) > 0 and isinstance(obj[0], str):
+                return obj[0]
+    return ""
+
 async def _run_tiktok_client(username):
     global current_client
     clean_user = username.replace("@", "").strip()
@@ -57,26 +71,30 @@ async def _run_tiktok_client(username):
         msg = event.comment.strip()
         user = event.user.unique_id
         nick = event.user.nickname or user
-        print(f"[Bridge] Chat: @{user}: {msg}")
+        avatar_url = _get_avatar_url(event.user)
+        print(f"[Bridge] Chat: @{user}: {msg} (avatar: {bool(avatar_url)})")
         if msg.lower() == "a":
             with event_lock:
                 event_queue.append({
                     "type": "chat_a",
                     "username": user,
                     "nickname": nick,
-                    "message": msg
+                    "message": msg,
+                    "avatar_url": avatar_url
                 })
 
     @current_client.on(GiftEvent)
     async def on_gift(event):
         user = event.user.unique_id
         gift = event.gift.name
+        avatar_url = _get_avatar_url(event.user)
         print(f"[Bridge] Gift: @{user} sent {gift}")
         with event_lock:
             event_queue.append({
                 "type": "gift",
                 "username": user,
-                "gift_name": gift
+                "gift_name": gift,
+                "avatar_url": avatar_url
             })
 
     try:
