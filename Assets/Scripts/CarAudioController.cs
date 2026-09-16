@@ -86,7 +86,7 @@ public class CarAudioController : MonoBehaviour
         idleSource.playOnAwake = false;
         idleSource.loop = true;
         idleSource.clip = engineIdleClip;
-        idleSource.volume = idleVolume;
+        idleSource.volume = 0f;
         idleSource.pitch = 1.0f;
         idleSource.spatialBlend = (playerCar != null) ? 0f : 1f;
         idleSource.minDistance = 4f;
@@ -138,10 +138,32 @@ public class CarAudioController : MonoBehaviour
         crashSource.rolloffMode = AudioRolloffMode.Logarithmic;
     }
 
+    public bool IsRaceActive()
+    {
+        // If pause menu is active, mute audio
+        if (PauseMenuManager.Instance != null && PauseMenuManager.Instance.IsPaused)
+            return false;
+
+        // If race manager exists, only allow car sound when race has actually started
+        if (RaceManager.Instance != null)
+        {
+            return RaceManager.Instance.isRaceActive;
+        }
+
+        // Fallback for isolated scene testing without RaceManager
+        if (playerCar != null) return playerCar.controlsEnabled || playerCar.SpeedKmh > 3f;
+        if (aiCar != null) return aiCar.isRacing || aiCar.SpeedKmh > 3f;
+        if (rb != null) return rb.linearVelocity.magnitude > 1f;
+        return true;
+    }
+
     void OnEnable()
     {
-        if (idleSource != null && idleSource.clip != null && !idleSource.isPlaying) idleSource.Play();
-        if (runningSource != null && runningSource.clip != null && !runningSource.isPlaying) runningSource.Play();
+        if (IsRaceActive())
+        {
+            if (idleSource != null && idleSource.clip != null && !idleSource.isPlaying) idleSource.Play();
+            if (runningSource != null && runningSource.clip != null && !runningSource.isPlaying) runningSource.Play();
+        }
     }
 
     void OnDisable()
@@ -153,8 +175,11 @@ public class CarAudioController : MonoBehaviour
 
     void Start()
     {
-        if (idleSource != null && idleSource.clip != null && !idleSource.isPlaying) idleSource.Play();
-        if (runningSource != null && runningSource.clip != null && !runningSource.isPlaying) runningSource.Play();
+        if (IsRaceActive())
+        {
+            if (idleSource != null && idleSource.clip != null && !idleSource.isPlaying) idleSource.Play();
+            if (runningSource != null && runningSource.clip != null && !runningSource.isPlaying) runningSource.Play();
+        }
     }
 
     void Update()
@@ -164,6 +189,36 @@ public class CarAudioController : MonoBehaviour
             playerCar = GetComponent<CarController>();
             aiCar = GetComponent<AICarController>();
         }
+
+        // Before race starts (Title screen, Lobby, waiting on grid, or Paused): keep car audio completely silent!
+        bool raceActive = IsRaceActive();
+        if (!raceActive)
+        {
+            float fadeSpeed = Time.unscaledDeltaTime * 8f;
+            if (idleSource != null)
+            {
+                idleSource.volume = Mathf.MoveTowards(idleSource.volume, 0f, fadeSpeed);
+                if (idleSource.volume <= 0.001f && idleSource.isPlaying)
+                    idleSource.Pause();
+            }
+            if (runningSource != null)
+            {
+                runningSource.volume = Mathf.MoveTowards(runningSource.volume, 0f, fadeSpeed);
+                if (runningSource.volume <= 0.001f && runningSource.isPlaying)
+                    runningSource.Pause();
+            }
+            if (skidSource != null && skidSource.isPlaying)
+            {
+                skidSource.Stop();
+            }
+            return;
+        }
+
+        // Race is active: ensure loops are unpaused/playing
+        if (idleSource != null && idleSource.clip != null && !idleSource.isPlaying)
+            idleSource.Play();
+        if (runningSource != null && runningSource.clip != null && !runningSource.isPlaying)
+            runningSource.Play();
 
         float speedKmh = 0f;
         float throttle = 0f;
@@ -317,6 +372,8 @@ public class CarAudioController : MonoBehaviour
 
     void OnCollisionEnter(Collision collision)
     {
+        if (!IsRaceActive()) return;
+
         float impactSpeed = collision.relativeVelocity.magnitude;
         if (impactSpeed < crashMinVelocity) return;
 
