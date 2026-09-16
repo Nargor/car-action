@@ -64,6 +64,7 @@ Build_WebGL/
 # --------------------------------------------------------
 sysinfo.txt
 crashlytics-build.properties
+Assets/Resources/PerformanceTestRun*
 
 # --------------------------------------------------------
 # 5. OS Generated Files (ไฟล์ขยะของระบบปฏิบัติการ)
