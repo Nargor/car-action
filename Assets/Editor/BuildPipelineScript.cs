@@ -24,6 +24,20 @@ public static class BuildPipelineScript
         PlayerSettings.companyName = "Nargor";
         PlayerSettings.bundleVersion = "1.0.0";
 
+        // Configure game application icon for Windows Standalone and Default
+        Texture2D iconTex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/UI/app_icon.png");
+        if (iconTex != null)
+        {
+            PlayerSettings.SetIconsForTargetGroup(BuildTargetGroup.Unknown, new Texture2D[] { iconTex });
+            int[] iconSizes = PlayerSettings.GetIconSizesForTargetGroup(BuildTargetGroup.Standalone);
+            if (iconSizes != null && iconSizes.Length > 0)
+            {
+                Texture2D[] standaloneIcons = new Texture2D[iconSizes.Length];
+                for (int i = 0; i < iconSizes.Length; i++) standaloneIcons[i] = iconTex;
+                PlayerSettings.SetIconsForTargetGroup(BuildTargetGroup.Standalone, standaloneIcons);
+            }
+        }
+
         BuildPlayerOptions options = new BuildPlayerOptions
         {
             scenes = Scenes,
@@ -45,6 +59,14 @@ public static class BuildPipelineScript
         if (File.Exists(srcBridge))
         {
             File.Copy(srcBridge, dstBridge, true);
+        }
+
+        // Copy app_icon.ico to build directory for shortcuts
+        string srcIco = Path.Combine(projectRoot, "Assets", "UI", "app_icon.ico");
+        string dstIco = Path.Combine(outDir, "app_icon.ico");
+        if (File.Exists(srcIco))
+        {
+            File.Copy(srcIco, dstIco, true);
         }
 
         return msg;
